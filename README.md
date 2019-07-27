@@ -7,6 +7,12 @@ style:
 * use extensive static typing for safety
 * minimal or no reliance on GC
 
+# License
+
+* portions of ATS1/ATS2 code: GPLv3
+  * by "portions" I mean some static definitions
+* my own code: [MIT](./LICENSE)
+
 # Installing (via `gitman`)
 
 1. install [gitman](https://github.com/jacebrowning/gitman)
