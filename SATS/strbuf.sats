@@ -233,3 +233,6 @@ string_tail
 
 fun{}
 stropt_get {n:int} (stropt(n), &ptr? >> opt (string(n), b)): #[b:bool] bool b
+
+fun{}
+g0eq_stropt_stropt (stropt, stropt): bool

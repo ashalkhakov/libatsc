@@ -1,4 +1,28 @@
+(** lang=markdown
+
+Singly-linked intrusive list.
+*)
+
+viewdef
+vtakeout
+( v1: view
+, v2: view ) = (v2, v2 -<lin,prf> v1)
+viewdef
+vtakeout0 (v:view) = vtakeout(void, v)
+
+(* ****** ****** *)
+
 sortdef node_t = addr -> tflt
+
+dataview
+opt_vtakeout (v1:view, v2:node_t, l:addr) =
+  | {ln:addr;l:agz} vtakeout_some_v (v1, v2, l) of (
+      v2(ln) @ l
+    , v2(ln) @ l -<lin,prf> v1
+    )
+  | vtakeout_none_v (v1, v2, null)
+viewdef
+opt_vtakeout0 (v:node_t, l:addr) = opt_vtakeout(void, v, l)
 
 prfun
 lemma_at_view {nv:node_t}{l1,l2:addr} (!nv (l2) @ l1): [l1 > null] void
@@ -52,3 +76,20 @@ slist_foreach {n:int} (
 
 fun{nv:node_t}
 slist_foreach$work {l:addr} (x : &nv(l)): void
+
+fun{nv:node_t}
+slist_iforeach {n:int} (
+  &slist (nv, n)
+): void
+
+fun{nv:node_t}
+slist_iforeach$work {l:addr} (int, x : &nv(l)): void
+
+fun{nv:node_t}
+slist_search$pred {l:addr} (x : &nv(l)): bool
+
+fun{nv:node_t}
+slist_search_takeout {n:int} (!slist (nv, n)): [l1:addr] (
+  opt_vtakeout0 (nv, l1)
+| ptr l1
+)

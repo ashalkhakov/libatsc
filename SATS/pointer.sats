@@ -7,3 +7,9 @@ ptr1_add
 fun{}
 ptr1_isneqz
 {l:addr}(ptr(l)):<> bool(l>null)
+
+castfn
+ref_make_viewptr
+  {a:vtflt}{l:addr}
+  (pf: a @ l | p: ptr(l)):<> ref(a)
+// end of [ref_make_viewptr]

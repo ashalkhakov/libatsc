@@ -175,6 +175,23 @@ end
 //
 end // end of [stropt_get]
 
+impltmp{}
+g0eq_stropt_stropt (x, y) = let
+//
+val px = $UN.castvwtp0{ptr}(x)
+val py = $UN.castvwtp0{ptr}(y)
+//
+in
+  if isneqz(px) then (
+    if isneqz(py) then (g0eq_str_str ($UN.castvwtp0{string}(x), $UN.castvwtp0{string}(y)))
+    else false
+  )
+  else (
+    if isneqz(py) then false
+    else true // null = null
+  )
+end
+
 impltmp
 {}(*tmp*)
 string_tail{n}(s) = let

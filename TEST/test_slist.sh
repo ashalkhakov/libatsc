@@ -6,6 +6,9 @@ OUTPUT=$(cat <<END
 input: specify input
 output: specify output
 help: print help
+found input, the help text is: specify input
+found help, the help text is: print help
+sorry, the variable named anything is not found
 END
 )
 

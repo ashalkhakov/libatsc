@@ -38,7 +38,7 @@ INCLUDE += -I${TEMPTORY}/ccomp/runtime
 
 ######
 
-all:: dynarray_dats strbuf_dats getopt_dats slist_dats
+all:: dynarray_dats strbuf_dats getopt_dats slist_dats argp_dats
 
 ######
 
@@ -56,6 +56,8 @@ getopt_dats: \
 getopt.dats; $(TEMPACC) -DATS_MEMALLOC_LIBC -o $@ $<
 slist_dats: \
 slist.dats; $(TEMPACC) -DATS_MEMALLOC_LIBC -o $@ $<
+argp_dats: \
+argp.dats; $(TEMPACC) -DATS_MEMALLOC_LIBC -o $@ $<
 
 ######
 
@@ -63,6 +65,7 @@ regress:: dynarray_dats; ./dynarray_dats
 regress:: strbuf_dats; ./strbuf_dats
 regress:: getopt_dats test_getopt.sh; ./test_getopt.sh
 regress:: slist_dats test_slist.sh; ./test_slist.sh
+regress:: argp_dats; ./argp_dats
 
 ######
 

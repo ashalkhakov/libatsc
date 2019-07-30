@@ -1,16 +1,13 @@
 #include "share/HATS/temptory_staload_bucs320.hats"
 
+#staload "./../SATS/pointer.sats"
 #staload
 _ = "./../DATS/pointer.dats"
+
 #staload "./../SATS/slist.sats"
 #staload _ = "./../DATS/slist.dats"
 
-extern
-castfn
-ref_make_viewptr
-  {a:vtflt}{l:addr}
-  (pf: a @ l | p: ptr(l)):<> ref(a)
-// end of [ref_make_viewptr]
+#staload "./slist_node.sats"
 
 (* ****** ****** *)
 
@@ -43,6 +40,29 @@ in
 end
 
 fun
+lookup_print (name: string): void = let
+  val (vbox pf_cvarlist | p_cvarlist) = ref_vptrof {cvarlist} (the_cvars)
+  val (pf_opt | p_opt) = $effmask_ref (slist_search_takeout<nv>(!p_cvarlist))
+  where {
+    impltmp
+    slist_search$pred<nv> (x) = (x.name = name)
+  }
+in
+  if ptr1_isneqz p_opt then {
+    prval vtakeout_some_v (pf_at, fpf) = pf_opt
+    val () = $effmask_ref (
+      println!("found ", name, ", the help text is: ", !p_opt.help)
+    )
+    prval () = fpf (pf_at)
+  } else {
+    val () = $effmask_ref (
+      println!("sorry, the variable named ", name, " is not found")
+    )
+    prval vtakeout_none_v () = pf_opt
+  }
+end
+
+fun
 print_cvars (): void = let
   val (vbox pf_cvarlist | p_cvarlist) = ref_vptrof {cvarlist} (the_cvars)
   val () = $effmask_ref (slist_foreach<nv> (!p_cvarlist)) where
@@ -63,4 +83,9 @@ var z : node0
 val () = register (view@ z | addr@ z, "input", "specify input")
 
 implement
-main0 () = print_cvars ()
+main0 () = {
+val () = print_cvars ()
+val () = lookup_print ("input")
+val () = lookup_print ("help")
+val () = lookup_print ("anything")
+}
