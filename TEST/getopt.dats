@@ -13,6 +13,20 @@ implfun
 main1 (argc, argv) = let
 //
 impltmp{}
+error_missing_param_long (key) =
+  (println!("please supply the required parameter for option --", key); exit(1))
+impltmp{}
+error_missing_param_short (key) =
+  (println!("please supply the required parameter for option -", key); exit(1))
+//
+impltmp{}
+long_is_flag (key) =
+  (key = "help" || key = "foobar" || key = "baz")
+impltmp{}
+short_is_flag (key) =
+  (key = 'h' || key = 'x' || key = 'z' || key = 'b')
+//
+impltmp{}
 handle_positional (num, arg) =
   print!("positional(", num, ", [", arg, "])")
 impltmp{}

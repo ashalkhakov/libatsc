@@ -128,6 +128,34 @@ in
 end
 
 fun{}
+run_is_flag_long (key: string, list: &slist0(cmd_opt)): bool = let
+  val (pf_opt | p_opt) = slist_search_takeout<cmd_opt>(list)
+  where {
+    impltmp
+    slist_search$pred<cmd_opt> (x) =
+      g0eq_stropt_stropt (x.long_name, stropt0_some(key))
+  }
+in
+  if ptr1_isneqz p_opt then let
+    prval vtakeout_some_v (pf_at, fpf) = pf_opt
+    val res =
+      case+ !p_opt.arity of
+      | OAnull () => true
+      | _ => false
+    prval () = fpf (pf_at)
+  in
+    res
+  end else let
+    prval vtakeout_none_v () = pf_opt
+    // FIXME: error handling?
+    val () = println!("unknown option: --", key)
+    val () = assert_errmsg(1 = 0, "unable to parse")
+  in
+    false
+  end
+end
+
+fun{}
 run_param_long (key: string, value: string, list: &slist0(cmd_opt)): void = let
   val (pf_opt | p_opt) = slist_search_takeout<cmd_opt>(list)
   where {
@@ -169,7 +197,6 @@ in
     val () =
       case+ !p_opt.arity of
       | OAnull () => !p_opt.handler (stropt0_none ())
-      | OAoptional () => !p_opt.handler (stropt0_none ())
       | OArequired () => (println!("the option --", key, " expects a parameter, but none was supplied"))
 
     prval () = fpf (pf_at)
@@ -179,6 +206,33 @@ in
     val () = println!("unknown option: --", key)
     val () = assert_errmsg(1 = 0, "unable to parse")
   }
+end
+
+fun{}
+run_is_flag_short (key: char, list: &slist0(cmd_opt)): bool = let
+  val (pf_opt | p_opt) = slist_search_takeout<cmd_opt>(list)
+  where {
+    impltmp
+    slist_search$pred<cmd_opt> (x) = (x.short_name = key)
+  }
+in
+  if ptr1_isneqz p_opt then let
+    prval vtakeout_some_v (pf_at, fpf) = pf_opt
+    val res =
+      case+ !p_opt.arity of
+      | OAnull () => true
+      | _ => false
+    prval () = fpf (pf_at)
+  in
+    res
+  end else let
+    prval vtakeout_none_v () = pf_opt
+    // FIXME: error handling?
+    val () = println!("unknown option: -", key)
+    val () = assert_errmsg(1 = 0, "unable to parse")
+  in
+    false
+  end
 end
 
 fun{}
@@ -223,7 +277,6 @@ in
     val () =
       case+ !p_opt.arity of
       | OAnull () => !p_opt.handler (stropt0_none ())
-      | OAoptional () => !p_opt.handler (stropt0_none ())
       | OArequired () => (println!("the option -", key, " expects a parameter, but none was supplied"))
 
     prval () = fpf (pf_at)
@@ -260,8 +313,6 @@ val () = (slist_foreach<cmd_opt> (options)) where
     val () = if iseqz(x.short_name)
       then print!("-", x.short_name)
       else print!("--", x.long_name)
-
-    val () = case+ x.arity of OAoptional () => print!("[") | _ => ()
         
     val param_name = (let
       var w : ptr
@@ -280,8 +331,6 @@ val () = (slist_foreach<cmd_opt> (options)) where
       case+ x.arity of
       | OAnull () => ()
       | _ => print!('=', param_name)
-        
-    val () = case+ x.arity of OAoptional () => print!("]") | _ => ()
 
     val () = print!("]")
   }
@@ -310,7 +359,7 @@ print_help_options (&slist0 (cmd_opt)): void
 impltmp{}
 print_help_options (options): void = {
 //
-val () =  slist_foreach<cmd_opt> (options) where
+val () = slist_foreach<cmd_opt> (options) where
 {
   // "Usage: <arg0> [OPTION...] ARG...
   // ""
@@ -318,7 +367,6 @@ val () =  slist_foreach<cmd_opt> (options) where
   // ""
   // "  -h|--help          print help" // null arg
   // "  -o|--output=FILE   specify output file" // required arg
-  // "  -i|--input[=FILE]  specify input file" // optional arg    
   impltmp
   slist_foreach$work<cmd_opt> (x) = {
     val () = print!("  ")
@@ -343,7 +391,6 @@ val () =  slist_foreach<cmd_opt> (options) where
     val () =
       case+ x.arity of
       | OAnull() => ()
-      | OAoptional () => print!("[=ARG]")
       | OArequired () => print!("=ARG")
 
     val () = print_help_text(x.help)
@@ -466,6 +513,32 @@ val () = {
 
 implfun
 parse {n}{i} (first, argc, argv) = {
+//
+impltmp{}
+error_missing_param_long (key) =
+  (println!("please supply the required parameter for option --", key); exit(1))
+impltmp{}
+error_missing_param_short (key) =
+  (println!("please supply the required parameter for option -", key); exit(1))
+//
+impltmp{}
+long_is_flag (key) = let
+  val (pf_options, fpf_options | p_options) =
+    ref_takeout {optionlist} (the_options)
+  val res = run_is_flag_long (key, !p_options)    
+  prval () = fpf_options (pf_options)
+in
+  res
+end
+impltmp{}
+short_is_flag (key) = let
+  val (pf_options, fpf_options | p_options) =
+    ref_takeout {optionlist} (the_options)
+  val res = run_is_flag_short (key, !p_options)    
+  prval () = fpf_options (pf_options)
+in
+  res
+end
 //
 impltmp{}
 handle_positional (num, arg) = {

@@ -1,5 +1,18 @@
 // NOTE: these are user-provided
 
+// called when the option is non-flag but there
+// was not any parameter specified
+fun{}
+error_missing_param_long (key: string): void
+fun{}
+error_missing_param_short (key: char): void
+
+// return [true] if given option is flag (argless)
+fun{}
+long_is_flag(key: string): bool
+fun{}
+short_is_flag(key: char): bool
+
 // [arg] is [num]th positional arg
 fun{}
 handle_positional (num: int, arg: string): void

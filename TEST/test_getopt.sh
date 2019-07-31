@@ -17,16 +17,18 @@ fi
 if [[ $(eval '$A --foobar --baz') != "long([foobar])long([baz])" ]]; then
     echo "5" && exit 1
 fi
-if [[ $(eval '$A --foobar=1 -b') != "long([foobar], [1])short([b])" ]]; then
+# foobar is flag
+if [[ $(eval '$A --foobar=1 -b') != "long([foobar])positional(0, [1])positional(1, [-b])" ]]; then
     echo "6" && exit 1
 fi
-if [[ $(eval '$A -xf') != "short([x])short([f])" ]]; then
+# -f requires an argument
+if [[ $(eval '$A -xf foobar.txt') != "short([x])short([f], [foobar.txt])" ]]; then
     echo "7" && exit 1
 fi
-if [[ $(eval '$A --foobar 1 2 -b') != "long([foobar], [1])long([foobar], [2])short([b])" ]]; then
+if [[ $(eval '$A --file 1 -b') != "long([file], [1])short([b])" ]]; then
     echo "8" && exit 1
 fi
-if [[ $(eval '$A --foobar=1 2') != "long([foobar], [1])long([foobar], [2])" ]]; then
+if [[ $(eval '$A --file=1 2') != "long([file], [1])positional(0, [2])" ]]; then
     echo "9" && exit 1
 fi
 if [[ $(eval '$A --output foo') != 'long([output], [foo])' ]]; then
@@ -43,4 +45,7 @@ if [[ $(eval '$A -xf foo.tar.gz') != 'short([x])short([f], [foo.tar.gz])' ]]; th
 fi
 if [[ $(eval '$A 1 2') != 'positional(0, [1])positional(1, [2])' ]]; then
     echo "14" && exit 1
+fi
+if [[ $(eval '$A --file -h') != 'please supply the required parameter for option --file' ]]; then
+    echo "15" && exit 1
 fi

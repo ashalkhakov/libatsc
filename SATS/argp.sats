@@ -2,7 +2,6 @@
 datatype
 opt_arity
 = OAnull // no argument
-| OAoptional // one argument is optional
 | OArequired // one argument is required
 typedef
 opt_handler = (stropt) -> void

@@ -217,7 +217,7 @@ args(tr : &tokenizer(n) >> _, tok : &token): void =
 (
 case+ tok.type of
 | tt_eof() => () // eof!
-| tt_short() => (collect_short(tok.cvalue, 0, tr))
+| tt_short() => collect_short(tok.cvalue, 0, tr)
 | tt_long() => collect_long(tok.value, 0, tr)
 | tt_end_of_opts () => let
     val i = tr.pos
@@ -236,12 +236,22 @@ let
   var tok: token
   val () = get_token(tr, tok)
 in
-(
-case+ tok.type of
-| tt_param() => (handle_param_short(opt, tok.value); collect_short(opt, succ(count), tr))
-// non-parameter? then this short option might be argless
-| _ =>  (if count=0 then handle_short(opt); args(tr, tok))
-)
+  if short_is_flag (opt) then {
+    val () = handle_short(opt)
+    val () = args (tr, tok)
+  } else (
+    case+ tok.type of
+    | tt_param() => {
+      val () = handle_param_short(opt, tok.value)
+      prval () = topize (tok)
+      val () = get_token (tr, tok)
+      val () = args(tr, tok)
+    }
+    | _ => (
+      error_missing_param_short (opt);
+      args (tr, tok)
+    )
+  )
 end
 //
 and collect_long(opt: string, count: int, tr: &tokenizer(n) >> _): void =
@@ -249,12 +259,22 @@ let
   var tok: token
   val () = get_token(tr, tok)
 in
-(
-case+ tok.type of
-| tt_param() => (handle_param_long(opt, tok.value); collect_long(opt, succ(count), tr))
-// non-parameter? then this long option might be argless
-| _ => (if count=0 then handle_long(opt); args (tr, tok))
-)
+  if long_is_flag (opt) then {
+    val () = handle_long (opt)
+    val () = args (tr, tok)
+  } else (
+    case+ tok.type of
+    | tt_param() => {
+      val () = handle_param_long (opt, tok.value)
+      prval () = topize (tok)
+      val () = get_token (tr, tok)
+      val () = args(tr, tok)
+    }
+    | _ => (
+      error_missing_param_long (opt);
+      args (tr, tok)
+    )
+  )
 end
 //
 and positional {i:nat | i <= n} (num: int, tr: &tokenizer(n) >> _, i: int(i), arg: string): void = let
