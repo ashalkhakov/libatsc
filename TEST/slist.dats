@@ -7,8 +7,6 @@ _ = "./../DATS/pointer.dats"
 #staload "./../SATS/slist.sats"
 #staload _ = "./../DATS/slist.dats"
 
-#staload "./slist_node.sats"
-
 (* ****** ****** *)
 
 typedef node (l:addr) = @{name= string, help= string, next= ptr l}

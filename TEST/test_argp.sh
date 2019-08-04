@@ -13,6 +13,9 @@ source file: foo
 destination file: -
 '
 
+# FIXME: all of this fails subtly
+# and I think the issue is somehow with the embedded line-endings
+# in the strings
 if [[ $(eval '$A --help') != $HELP ]]; then
     echo "0" && exit 1
 fi

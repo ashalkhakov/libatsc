@@ -53,16 +53,6 @@ _ = "./../DATS/strbuf.dats"
 #staload
 _ = "./../DATS/getopt.dats"
 
-dataview
-optn1_view_bool_view
-(
-  a:view, bool
-) =
-  | optn1_v_none(a, ff)
-  | optn1_v_some(a, tt) of (a)
-sexpdef optn1_v = optn1_view_bool_view
-sexpdef optn1_v(a:vtflt) = [b:bool] optn1_v(a, b)
-
 extern
 castfn
 ref_takeout {a:vtflt}
@@ -89,39 +79,6 @@ var positionals = slist_nil<cmd_pos> () : positionallist
 val the_positionals = ref_make_viewptr (view@ positionals | addr@ positionals)
 
 val p_positionals = addr@ positionals
-
-implfun
-add_option {l} (
-  pf_at | p, short, long, arity, param_name, handler, help
-) = {
-  val () = (
-    !p.short_name := short;
-    !p.long_name := long;
-    !p.arity := arity;
-    !p.param_name := param_name;
-    !p.handler := handler;
-    !p.help := help;
-    !p.next := the_null_ptr
-  )
-  
-  val (vbox pf_list | p_list) = ref_vptrof {optionlist} (the_options)
-  val () = $effmask_all (slist_cons<cmd_opt> (pf_at | !p_list, p))
-}
-
-implfun
-add_positional {l} (
-  pf_at | p, idx, name, handler, help
-) = {
-  val () = (
-    !p.index := idx;
-    !p.name := name;
-    !p.handler := handler;
-    !p.help := help;
-    !p.next := the_null_ptr
-  )
-  val (vbox pf_list | p_list) = ref_vptrof {positionallist} (the_positionals)
-  val () = $effmask_all (slist_cons<cmd_pos> (pf_at | !p_list, p))
-}
 
 (* ****** ****** *)
 
@@ -206,6 +163,113 @@ end
 
 (* ****** ****** *)
 
+implfun
+add_option {l} (
+  pf_at | p, short, long, arity, param_name, handler, help
+) = {
+  val () = assert_errmsg (
+    short != '\0' || isneqz(long),
+    "either short name or long name should be specified"
+  )
+
+  val () = (
+    !p.short_name := short;
+    !p.long_name := long;
+    !p.arity := arity;
+    !p.param_name := param_name;
+    !p.handler := handler;
+    !p.help := help;
+    !p.next := the_null_ptr
+  )
+  
+  val (vbox pf_list | p_list) = ref_vptrof {optionlist} (the_options)
+  
+  val () = $effmask_ref (
+  if short != '\0' then let
+    val p0 = h_opt_lookup_short (short, !p_list)
+    val dup = h_opt_is_null(p0)
+  in
+    if dup then (
+      println!("short name [", short, "] is already in use!");
+      assert_errmsg (dup, "duplicate short name")
+    )
+  end)
+  val () = $effmask_ref (let
+    var w : ptr
+    val opt = $UN.castvwtp0{[n:int]stropt(n)}(long)
+  in
+    if stropt_get (opt, w) then let
+      prval () = opt_unsome (w)
+      val ln = w
+      val () = assert_errmsg (length (ln) = 0, "empty long names are disallowed")
+      prval () = topize(w)
+      val p0 = h_opt_lookup_long (ln, !p_list)
+      val dup = h_opt_is_null(p0)
+    in
+      if dup then (
+        println!("long name [", long, "] is already in use!");
+        assert_errmsg (dup, "duplicate long name")
+      )
+    end else let prval () = opt_unnone (w) in
+      (*empty*)
+    end
+  end)
+  
+  val () = $effmask_all (slist_cons<cmd_opt> (pf_at | !p_list, p))
+}
+
+implfun
+add_positional {l} (
+  pf_at | p, idx, name, handler, help
+) = {
+  val () = (
+    !p.index := idx;
+    !p.name := name;
+    !p.handler := handler;
+    !p.help := help;
+    !p.next := the_null_ptr
+  )
+  val (vbox pf_list | p_list) = ref_vptrof {positionallist} (the_positionals)
+  val () = $effmask_all (slist_cons<cmd_pos> (pf_at | !p_list, p))
+}
+
+(* ****** ****** *)
+
+extern
+fun{}
+print_option {l:addr} (&cmd_opt(l)): void
+
+impltmp{}
+print_option {l} (x) = {
+  val () = print!("[")
+        
+  val () = if iseqz(x.short_name)
+    then print!("-", x.short_name)
+    else print!("--", x.long_name)
+        
+  val param_name = (let
+    var w : ptr
+    val opt = $UN.castvwtp0{[n:int]stropt(n)}(x.param_name)
+  in
+    if stropt_get (opt, w) then let
+      prval () = opt_unsome (w)
+      val res = w
+      prval () = topize(w)
+    in
+      (g0ofg1)res
+    end else let prval () = opt_unnone (w) in (g0ofg1)"ARG" end
+  end) : string
+
+  val () =
+    case+ x.arity of
+    | OAnull () => ()
+    | _ => print!('=', param_name)
+
+  val () = print!("]")
+}
+
+(* ****** ****** *)
+
 fun{}
 run_positional (num: int, arg: string, list: &slist0(cmd_pos)): void = let
   val (pf_opt | p_opt) = slist_search_takeout<cmd_pos>(list)
@@ -222,7 +286,7 @@ in
     prval vtakeout_none_v () = pf_opt
     // FIXME: error handling?
     val () = println!("unknown positional argument number: ", num)
-    val () = assert_errmsg(1 = 0, "unable to parse")
+    val () = assert_errmsg(1 = 0, "unexpected positional argument")
   }
 end
 
@@ -246,31 +310,7 @@ val () = (slist_foreach<cmd_opt> (options)) where
   impltmp
   slist_foreach$work<cmd_opt> (x) = {
     val () = print!(" ")
-    val () = print!("[")
-        
-    val () = if iseqz(x.short_name)
-      then print!("-", x.short_name)
-      else print!("--", x.long_name)
-        
-    val param_name = (let
-      var w : ptr
-      val opt = $UN.castvwtp0{[n:int]stropt(n)}(x.param_name)
-    in
-      if stropt_get (opt, w) then let
-        prval () = opt_unsome (w)
-        val res = w
-        prval () = topize(w)
-      in
-        (g0ofg1)res
-      end else let prval () = opt_unnone (w) in (g0ofg1)"ARG" end
-    end) : string
-
-    val () =
-      case+ x.arity of
-      | OAnull () => ()
-      | _ => print!('=', param_name)
-
-    val () = print!("]")
+    val () = print_option (x)
   }
 }
 //
@@ -470,27 +510,11 @@ prval pf_last_node = view@ last_node
 impltmp{}
 error_missing_param () = {
   prval (pf_node, fpf) = vcopyenv_v_decode ($vcopyenv_v (pf_last_node))
-  val () = assert(h_opt_is_some(last_node))
+  val () = assert_errmsg(h_opt_is_some(last_node), "internal error: parameter for non-option")
   val (pf_at, fpf_at | p) = h_opt_decode (last_node)
 
   val () = print!("please supply the required parameter for option ")
-  
-  val has_short = isneqz(!p.short_name)
-  val () = if has_short then print!('-', !p.short_name)
-    
-  val () = (let
-    var w : ptr
-    val opt = $UN.castvwtp0{[n:int]stropt(n)}(!p.long_name)
-  in
-    if stropt_get (opt, w) then let
-      prval () = opt_unsome (w)
-      val long_name = w
-      val () = if has_short then print!('|')
-      val () = print!("--", long_name)
-      prval () = topize(w)
-    in
-    end else let prval () = opt_unnone (w) in () end
-  end)
+  val () = print_option (!p)
   val () = print_newline ()
 
   prval () = fpf_at (pf_at)
@@ -505,7 +529,8 @@ long_has_param (key) = let
   prval (pf_node, fpf) = vcopyenv_v_decode ($vcopyenv_v (pf_last_node))
   val res = h_opt_lookup_long (key, !p_options)
   // otherwise it's an unknown option and we should fail
-  val () = assert(h_opt_is_some (res))
+  val () = println!("option [", key, "] is not expected")
+  val () = assert_errmsg(h_opt_is_some (res), "unknown option")
   val (pf_at, fpf_at | p) = h_opt_decode (res)
   val has_param =
     case+ !p.arity of
@@ -528,7 +553,8 @@ short_has_param (key) = let
   prval (pf_node, fpf) = vcopyenv_v_decode ($vcopyenv_v (pf_last_node))
   val res = h_opt_lookup_short (key, !p_options)
   // otherwise it's an unknown option and we should fail
-  val () = assert(h_opt_is_some (res))
+  val () = println!("option [", key, "] is not expected")
+  val () = assert_errmsg(h_opt_is_some (res), "unexpected option")
   val (pf_at, fpf_at | p) = h_opt_decode (res)
   val has_param =
     case+ !p.arity of
@@ -547,7 +573,7 @@ end
 impltmp{}
 handle_param (value) = {
   prval (pf_node, fpf) = vcopyenv_v_decode ($vcopyenv_v (pf_last_node))
-  val () = assert(h_opt_is_some(last_node))
+  val () = assert_errmsg(h_opt_is_some(last_node), "internal error: parameter for non-option")
   val (pf_at, fpf_at | p) = h_opt_decode (last_node)
   
   val () = !p.handler(stropt0_some(value))
