@@ -67,8 +67,8 @@ val () = add_positional (
 implement
 main1 (argc, argv) = let
   val () = assertloc(argc>=1)
-  //val () = print_help (argv_get_at(argv, 0))
-  val () = parse (1, argc, argv)
+  val () =
+    if argc=1 then print_help ("argp") else parse (1, argc, argv)
 in
   0
 end

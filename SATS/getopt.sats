@@ -3,31 +3,23 @@
 // called when the option is non-flag but there
 // was not any parameter specified
 fun{}
-error_missing_param_long (key: string): void
-fun{}
-error_missing_param_short (key: char): void
+error_missing_param (): void
 
-// return [true] if given option is flag (argless)
+// return [true] if given option is requires a parameter
+// return [false] if it is argless (and work on it right away)
+// throw if this option is unknown
 fun{}
-long_is_flag(key: string): bool
+long_has_param (key: string): bool
 fun{}
-short_is_flag(key: char): bool
+short_has_param (key: char): bool
+
+// handle parameter to option
+fun{}
+handle_param (value: string): void
 
 // [arg] is [num]th positional arg
 fun{}
 handle_positional (num: int, arg: string): void
-// [value] is parameter of [key]
-fun{}
-handle_param_long(key: string, value: string): void
-// [key] is argless here
-fun{}
-handle_long(key:string): void
-// [value] is parameter of [key]
-fun{}
-handle_param_short(key: char, value: string): void
-// [key] is argless here
-fun{}
-handle_short(key: char): void
 
 (** lang=markdown
 

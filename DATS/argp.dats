@@ -3,6 +3,10 @@
 #staload
 _ = "libats/DATS/gint.dats"
 #staload
+"libats/SATS/gptr.sats"
+#staload
+_ = "libats/DATS/gptr.dats"
+#staload
 "libats/SATS/gref.sats"
 #staload
 _ = "libats/DATS/gref.dats"
@@ -33,6 +37,8 @@ UN = "libats/SATS/unsafe.sats"
 "./../SATS/argp.sats"
 
 #staload
+"./../SATS/vcopyenv.sats"
+#staload
 "./../SATS/pointer.sats"
 #staload
 _ = "./../DATS/pointer.dats"
@@ -46,6 +52,16 @@ _ = "./../DATS/strbuf.dats"
 "./../SATS/getopt.sats"
 #staload
 _ = "./../DATS/getopt.dats"
+
+dataview
+optn1_view_bool_view
+(
+  a:view, bool
+) =
+  | optn1_v_none(a, ff)
+  | optn1_v_some(a, tt) of (a)
+sexpdef optn1_v = optn1_view_bool_view
+sexpdef optn1_v(a:vtflt) = [b:bool] optn1_v(a, b)
 
 extern
 castfn
@@ -107,6 +123,89 @@ add_positional {l} (
   val () = $effmask_all (slist_cons<cmd_pos> (pf_at | !p_list, p))
 }
 
+(* ****** ****** *)
+
+abstbox h_opt (addr) = ptr
+typedef h_opt0 = [l:addr] h_opt(l)
+
+extern
+fun{}
+h_opt_null (): h_opt(null)
+extern
+fun{}
+h_opt_is_null {l:addr} (h_opt(l)): bool (l == null)
+extern
+fun{}
+h_opt_is_some {l:addr} (h_opt(l)): bool (l > null)
+extern
+fun{}
+h_opt_lookup_short (c: char, &slist0(cmd_opt)): [l:addr] h_opt(l)
+extern
+fun{}
+h_opt_lookup_long (s: string, &slist0(cmd_opt)): [l:addr] h_opt(l)
+extern
+castfn
+h_opt_decode {l:agz} (h_opt(l)): [l1:addr] (
+  cmd_opt(l1) @ l, cmd_opt(l1) @ l -<lin,prf> void
+| ptr l
+)
+
+impltmp{}
+h_opt_null () = $UN.castvwtp0{h_opt(null)}(the_null_ptr)
+
+impltmp{}
+h_opt_is_null {l:addr} (p) =
+  $UN.castvwtp0{bool(l == null)}(ptr0_iseqz ($UN.castvwtp0{ptr}(p)))
+impltmp{}
+h_opt_is_some {l:addr} (p) =
+  $UN.castvwtp0{bool(l > null)}(ptr0_isneqz ($UN.castvwtp0{ptr}(p)))
+
+impltmp{}
+h_opt_lookup_long (key, list) = let
+  val (pf_opt | p_opt) = slist_search_takeout<cmd_opt>(list)
+  where {
+    impltmp
+    slist_search$pred<cmd_opt> (x) =
+      g0eq_stropt_stropt (x.long_name, stropt0_some(key))
+  }
+in
+  if ptr1_isneqz p_opt then let
+    prval vtakeout_some_v (pf_at, fpf) = pf_opt
+    val res = $UN.castvwtp0{[l:agz]h_opt(l)}(p_opt)
+    prval () = fpf (pf_at)
+  in
+    res
+  end else let
+    prval vtakeout_none_v () = pf_opt
+  in
+    h_opt_null ()
+  end
+end
+
+impltmp{}
+h_opt_lookup_short (key, list) = let
+  val (pf_opt | p_opt) = slist_search_takeout<cmd_opt>(list)
+  where {
+    impltmp
+    slist_search$pred<cmd_opt> (x) =
+      (x.short_name = key)
+  }
+in
+  if ptr1_isneqz p_opt then let
+    prval vtakeout_some_v (pf_at, fpf) = pf_opt
+    val res = $UN.castvwtp0{[l:agz]h_opt(l)}(p_opt)
+    prval () = fpf (pf_at)
+  in
+    res
+  end else let
+    prval vtakeout_none_v () = pf_opt
+  in
+    h_opt_null ()
+  end
+end
+
+(* ****** ****** *)
+
 fun{}
 run_positional (num: int, arg: string, list: &slist0(cmd_pos)): void = let
   val (pf_opt | p_opt) = slist_search_takeout<cmd_pos>(list)
@@ -123,167 +222,6 @@ in
     prval vtakeout_none_v () = pf_opt
     // FIXME: error handling?
     val () = println!("unknown positional argument number: ", num)
-    val () = assert_errmsg(1 = 0, "unable to parse")
-  }
-end
-
-fun{}
-run_is_flag_long (key: string, list: &slist0(cmd_opt)): bool = let
-  val (pf_opt | p_opt) = slist_search_takeout<cmd_opt>(list)
-  where {
-    impltmp
-    slist_search$pred<cmd_opt> (x) =
-      g0eq_stropt_stropt (x.long_name, stropt0_some(key))
-  }
-in
-  if ptr1_isneqz p_opt then let
-    prval vtakeout_some_v (pf_at, fpf) = pf_opt
-    val res =
-      case+ !p_opt.arity of
-      | OAnull () => true
-      | _ => false
-    prval () = fpf (pf_at)
-  in
-    res
-  end else let
-    prval vtakeout_none_v () = pf_opt
-    // FIXME: error handling?
-    val () = println!("unknown option: --", key)
-    val () = assert_errmsg(1 = 0, "unable to parse")
-  in
-    false
-  end
-end
-
-fun{}
-run_param_long (key: string, value: string, list: &slist0(cmd_opt)): void = let
-  val (pf_opt | p_opt) = slist_search_takeout<cmd_opt>(list)
-  where {
-    impltmp
-    slist_search$pred<cmd_opt> (x) = g0eq_stropt_stropt (x.long_name, stropt0_some(key))
-  }
-in
-  if ptr1_isneqz p_opt then {
-    prval vtakeout_some_v (pf_at, fpf) = pf_opt
-    val param = value
-    val param = stropt0_some (param)
-
-    val () =
-      case+ !p_opt.arity of
-      | OAnull () => (println!("the option --", key, " expects no parameters, but it was supplied with: ", value))
-      | _ => ()
-
-    val () = !p_opt.handler (param)
-    prval () = fpf (pf_at)
-  } else {
-    prval vtakeout_none_v () = pf_opt
-    // FIXME: error handling?
-    val () = println!("unknown option: --", key)
-    val () = assert_errmsg(1 = 0, "unable to parse")
-  }
-end
-
-fun{}
-run_long (key: string, list: &slist0(cmd_opt)): void = let
-  val (pf_opt | p_opt) = slist_search_takeout<cmd_opt>(list)
-  where {
-    impltmp
-    slist_search$pred<cmd_opt> (x) = g0eq_stropt_stropt (x.long_name, stropt0_some(key))
-  }
-in
-  if ptr1_isneqz p_opt then {
-    prval vtakeout_some_v (pf_at, fpf) = pf_opt
-
-    val () =
-      case+ !p_opt.arity of
-      | OAnull () => !p_opt.handler (stropt0_none ())
-      | OArequired () => (println!("the option --", key, " expects a parameter, but none was supplied"))
-
-    prval () = fpf (pf_at)
-  } else {
-    prval vtakeout_none_v () = pf_opt
-    // FIXME: error handling?
-    val () = println!("unknown option: --", key)
-    val () = assert_errmsg(1 = 0, "unable to parse")
-  }
-end
-
-fun{}
-run_is_flag_short (key: char, list: &slist0(cmd_opt)): bool = let
-  val (pf_opt | p_opt) = slist_search_takeout<cmd_opt>(list)
-  where {
-    impltmp
-    slist_search$pred<cmd_opt> (x) = (x.short_name = key)
-  }
-in
-  if ptr1_isneqz p_opt then let
-    prval vtakeout_some_v (pf_at, fpf) = pf_opt
-    val res =
-      case+ !p_opt.arity of
-      | OAnull () => true
-      | _ => false
-    prval () = fpf (pf_at)
-  in
-    res
-  end else let
-    prval vtakeout_none_v () = pf_opt
-    // FIXME: error handling?
-    val () = println!("unknown option: -", key)
-    val () = assert_errmsg(1 = 0, "unable to parse")
-  in
-    false
-  end
-end
-
-fun{}
-run_param_short (key: char, value: string, list: &slist0(cmd_opt)): void = let
-  val (pf_opt | p_opt) = slist_search_takeout<cmd_opt>(list)
-  where {
-    impltmp
-    slist_search$pred<cmd_opt> (x) = (x.short_name = key)
-  }
-in
-  if ptr1_isneqz p_opt then {
-    prval vtakeout_some_v (pf_at, fpf) = pf_opt
-    val param = value
-    val param = stropt0_some (param)
-
-    val () =
-      case+ !p_opt.arity of
-      | OAnull () => (println!("the option -", key, " expects no parameters, but it was supplied with: ", value))
-      | _ => ()
-
-    val () = !p_opt.handler (param)
-    prval () = fpf (pf_at)
-  } else {
-    prval vtakeout_none_v () = pf_opt
-    // FIXME: error handling?
-    val () = println!("unknown option: -", key)
-    val () = assert_errmsg(1 = 0, "unable to parse")
-  }
-end
-
-fun{}
-run_short (key: char, list: &slist0(cmd_opt)): void = let
-  val (pf_opt | p_opt) = slist_search_takeout<cmd_opt>(list)
-  where {
-    impltmp
-    slist_search$pred<cmd_opt> (x) = (x.short_name = key)
-  }
-in
-  if ptr1_isneqz p_opt then {
-    prval vtakeout_some_v (pf_at, fpf) = pf_opt
-
-    val () =
-      case+ !p_opt.arity of
-      | OAnull () => !p_opt.handler (stropt0_none ())
-      | OArequired () => (println!("the option -", key, " expects a parameter, but none was supplied"))
-
-    prval () = fpf (pf_at)
-  } else {
-    prval vtakeout_none_v () = pf_opt
-    // FIXME: error handling?
-    val () = println!("unknown option: -", key)
     val () = assert_errmsg(1 = 0, "unable to parse")
   }
 end
@@ -419,34 +357,39 @@ val rpad = 4
 // first pass, compute maximum indent for the second column;
 // do not print as of yet!
 val max_indent = let
-  extern
-  prfun
-  vcopy {a:tflt}{l:addr} (!a @ l):<> a @ l
-
   var indent = (g0ofg1)0
-  val r_indent = ref_make_viewptr (vcopy(view@indent) | addr@indent)
+  prval pf_indent = view@ indent
   var max_indent = (g0ofg1)0
-  val r_max_indent = ref_make_viewptr (vcopy(view@max_indent) | addr@max_indent)
+  prval pf_max_indent = view@ max_indent
 
   impltmp
   print_newline<>() = {
-    val o_max = ref_get_elt<int>(r_max_indent)
-    val n_max = ref_get_elt<int>(r_indent)
+    prval (pf1_at, fpf1) = vcopyenv_v_decode ($vcopyenv_v (pf_indent))
+    prval (pf2_at, fpf2) = vcopyenv_v_decode ($vcopyenv_v (pf_max_indent))
+  
+    val o_max = max_indent
+    val n_max = indent
     
     val x = (if o_max < n_max then n_max else o_max)
-    val () = ref_set_elt<int> (r_max_indent, x)
-    val () = ref_set_elt<int> (r_indent, 0)
+    val () = max_indent := x
+    val () = indent := 0
+    prval () = fpf1 (pf1_at)
+    prval () = fpf2 (pf2_at)
   }
   impltmp
   print_char<> (c) = {
-    val i = ref_get_elt<int>(r_indent)
-    val () = ref_set_elt<int>(r_indent, i+1)
+    prval (pf1_at, fpf1) = vcopyenv_v_decode ($vcopyenv_v (pf_indent))
+    val i = indent
+    val () = indent := i+1
+    prval () = fpf1 (pf1_at)
   }
   impltmp
   print_string<> (s) = {
+    prval (pf1_at, fpf1) = vcopyenv_v_decode ($vcopyenv_v (pf_indent))
     val l = string1_length((g1ofg0)s)
-    val i = ref_get_elt<int>(r_indent)
-    val () = ref_set_elt<int>(r_indent, i+l)
+    val i = indent
+    val () = indent := i+l
+    prval () = fpf1 (pf1_at)
   }
   impltmp
   print_help_text<> (x) = print_newline ()
@@ -455,7 +398,9 @@ val max_indent = let
   val () = print_help_options (!p_options)
   prval () = fpf_options (pf_options)
 
-  val res = ref_get_elt<int>(r_max_indent)
+  val res = max_indent
+  prval () = view@ indent := pf_indent
+  prval () = view@ max_indent := pf_max_indent
 in
   res
 end
@@ -463,29 +408,31 @@ end
 // second pass: print almost normally, but increase the local
 // indent as necessary, then pad
 val () = {
-  extern
-  prfun
-  vcopy {a:tflt}{l:addr} (!a @ l):<> a @ l
-
   var indent = (g0ofg1)0
-  val r_indent = ref_make_viewptr (vcopy(view@indent) | addr@indent)
+  prval pf_indent = view@ indent
 
   impltmp
   print_newline<>() = {
-    val () = ref_set_elt<int>(r_indent, 0)
+    prval (pf1_at, fpf1) = vcopyenv_v_decode ($vcopyenv_v (pf_indent))
+    val () = indent := 0
+    prval () = fpf1 (pf1_at)
     val () = $IO.fprint_newline<>($IO.the_stdout<>())
   }
   impltmp
   print_char<> (c) = {
-    val i = ref_get_elt<int>(r_indent)
-    val () = ref_set_elt<int>(r_indent, i+1)
+    prval (pf1_at, fpf1) = vcopyenv_v_decode ($vcopyenv_v (pf_indent))
+    val i = indent
+    val () = indent := i+1
+    prval () = fpf1 (pf1_at)
     val () = $IO.fprint$val<char>($IO.the_stdout<>(), c)
   }
   impltmp
   print_string<> (s) = {
+    prval (pf1_at, fpf1) = vcopyenv_v_decode ($vcopyenv_v (pf_indent))
     val l = string1_length((g1ofg0)s)
-    val i = ref_get_elt<int>(r_indent)
-    val () = ref_set_elt<int>(r_indent, i+l)
+    val i = indent
+    val () = indent := i+l
+    prval () = fpf1 (pf1_at)
     val () = $IO.fprint$val<string>($IO.the_stdout<>(), s)
   }
   //
@@ -496,7 +443,9 @@ val () = {
   //
   impltmp
   print_help_text<> (x) = {
-    val i = ref_get_elt<int>(r_indent)
+    prval (pf1_at, fpf1) = vcopyenv_v_decode ($vcopyenv_v (pf_indent))
+    val i = indent
+    prval () = fpf1 (pf1_at)
     val max = max_indent
     
     val () = pad (' ', max-i+rpad)
@@ -505,6 +454,7 @@ val () = {
   val (pf_options, fpf_options | p_options) = ref_takeout {optionlist} (the_options)
   val () = print_help_options (!p_options)
   prval () = fpf_options (pf_options)
+  prval () = view@ indent := pf_indent
 }
 //
 }
@@ -514,31 +464,97 @@ val () = {
 implfun
 parse {n}{i} (first, argc, argv) = {
 //
-impltmp{}
-error_missing_param_long (key) =
-  (println!("please supply the required parameter for option --", key); exit(1))
-impltmp{}
-error_missing_param_short (key) =
-  (println!("please supply the required parameter for option -", key); exit(1))
+var last_node = h_opt_null() : h_opt0
+prval pf_last_node = view@ last_node
 //
 impltmp{}
-long_is_flag (key) = let
+error_missing_param () = {
+  prval (pf_node, fpf) = vcopyenv_v_decode ($vcopyenv_v (pf_last_node))
+  val () = assert(h_opt_is_some(last_node))
+  val (pf_at, fpf_at | p) = h_opt_decode (last_node)
+
+  val () = print!("please supply the required parameter for option ")
+  
+  val has_short = isneqz(!p.short_name)
+  val () = if has_short then print!('-', !p.short_name)
+    
+  val () = (let
+    var w : ptr
+    val opt = $UN.castvwtp0{[n:int]stropt(n)}(!p.long_name)
+  in
+    if stropt_get (opt, w) then let
+      prval () = opt_unsome (w)
+      val long_name = w
+      val () = if has_short then print!('|')
+      val () = print!("--", long_name)
+      prval () = topize(w)
+    in
+    end else let prval () = opt_unnone (w) in () end
+  end)
+  val () = print_newline ()
+
+  prval () = fpf_at (pf_at)
+  prval () = fpf (pf_node)
+  val _ = exit(1)
+}
+//
+impltmp{}
+long_has_param (key) = let
   val (pf_options, fpf_options | p_options) =
     ref_takeout {optionlist} (the_options)
-  val res = run_is_flag_long (key, !p_options)    
+  prval (pf_node, fpf) = vcopyenv_v_decode ($vcopyenv_v (pf_last_node))
+  val res = h_opt_lookup_long (key, !p_options)
+  // otherwise it's an unknown option and we should fail
+  val () = assert(h_opt_is_some (res))
+  val (pf_at, fpf_at | p) = h_opt_decode (res)
+  val has_param =
+    case+ !p.arity of
+    | OArequired() => true
+    | _ => (!p.handler (stropt0_none()); false)
+  prval () = fpf_at (pf_at)
+  val () = last_node := res
+  prval () = __leak (pf_node, fpf) where {
+    extern
+    prfun __leak {v1,v2:view} (v1, v2): void
+  }
   prval () = fpf_options (pf_options)
 in
-  res
+  has_param
 end
 impltmp{}
-short_is_flag (key) = let
+short_has_param (key) = let
   val (pf_options, fpf_options | p_options) =
     ref_takeout {optionlist} (the_options)
-  val res = run_is_flag_short (key, !p_options)    
+  prval (pf_node, fpf) = vcopyenv_v_decode ($vcopyenv_v (pf_last_node))
+  val res = h_opt_lookup_short (key, !p_options)
+  // otherwise it's an unknown option and we should fail
+  val () = assert(h_opt_is_some (res))
+  val (pf_at, fpf_at | p) = h_opt_decode (res)
+  val has_param =
+    case+ !p.arity of
+    | OArequired() => true
+    | _ => (!p.handler (stropt0_none()); false)
+  prval () = fpf_at (pf_at)
+  val () = last_node := res
+  prval () = __leak (pf_node, fpf) where {
+    extern
+    prfun __leak {v1,v2:view} (v1, v2): void
+  }
   prval () = fpf_options (pf_options)
 in
-  res
+  has_param
 end
+impltmp{}
+handle_param (value) = {
+  prval (pf_node, fpf) = vcopyenv_v_decode ($vcopyenv_v (pf_last_node))
+  val () = assert(h_opt_is_some(last_node))
+  val (pf_at, fpf_at | p) = h_opt_decode (last_node)
+  
+  val () = !p.handler(stropt0_some(value))
+
+  prval () = fpf_at (pf_at)
+  prval () = fpf (pf_node)
+}
 //
 impltmp{}
 handle_positional (num, arg) = {
@@ -547,35 +563,10 @@ handle_positional (num, arg) = {
   val () = run_positional (num, arg, !p_positionals)
   prval () = fpf_positionals (pf_positionals)
 }
-impltmp{}
-handle_param_long (key, value) = {
-  val (pf_options, fpf_options | p_options) =
-    ref_takeout {optionlist} (the_options)
-  val () = run_param_long (key, value, !p_options)
-  prval () = fpf_options (pf_options)
-}
-impltmp{}
-handle_long (key) = {
-  val (pf_options, fpf_options | p_options) =
-    ref_takeout {optionlist} (the_options)
-  val () = run_long (key, !p_options)
-  prval () = fpf_options (pf_options)
-}
-impltmp{}
-handle_param_short(key, value) = {
-  val (pf_options, fpf_options | p_options) =
-    ref_takeout {optionlist} (the_options)
-  val () = run_param_short (key, value, !p_options)
-  prval () = fpf_options (pf_options)
-}
-impltmp{}
-handle_short (key) = {
-  val (pf_options, fpf_options | p_options) =
-    ref_takeout {optionlist} (the_options)
-  val () = run_short (key, !p_options)
-  prval () = fpf_options (pf_options)
-}
 //
 val () = parse_args (first, argc, argv)
 //
+prval () = view@ last_node := pf_last_node
+//
 }
+

@@ -236,22 +236,19 @@ let
   var tok: token
   val () = get_token(tr, tok)
 in
-  if short_is_flag (opt) then {
-    val () = handle_short(opt)
-    val () = args (tr, tok)
-  } else (
+  if short_has_param (opt) then (
     case+ tok.type of
     | tt_param() => {
-      val () = handle_param_short(opt, tok.value)
+      val () = handle_param(tok.value)
       prval () = topize (tok)
       val () = get_token (tr, tok)
       val () = args(tr, tok)
     }
     | _ => (
-      error_missing_param_short (opt);
+      error_missing_param ();
       args (tr, tok)
     )
-  )
+  ) else args (tr, tok)
 end
 //
 and collect_long(opt: string, count: int, tr: &tokenizer(n) >> _): void =
@@ -259,22 +256,19 @@ let
   var tok: token
   val () = get_token(tr, tok)
 in
-  if long_is_flag (opt) then {
-    val () = handle_long (opt)
-    val () = args (tr, tok)
-  } else (
+  if long_has_param (opt) then (
     case+ tok.type of
     | tt_param() => {
-      val () = handle_param_long (opt, tok.value)
+      val () = handle_param (tok.value)
       prval () = topize (tok)
       val () = get_token (tr, tok)
       val () = args(tr, tok)
     }
     | _ => (
-      error_missing_param_long (opt);
+      error_missing_param ();
       args (tr, tok)
     )
-  )
+  ) else args (tr, tok)
 end
 //
 and positional {i:nat | i <= n} (num: int, tr: &tokenizer(n) >> _, i: int(i), arg: string): void = let
