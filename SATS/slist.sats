@@ -93,3 +93,22 @@ slist_search_takeout {n:int} (!slist (nv, n)): [l1:addr] (
   opt_vtakeout0 (nv, l1)
 | ptr l1
 )
+
+// evaluate predicate over all nodes
+fun{nv:node_t}
+slist_all$pred {l:addr} (x: &nv(l)): bool
+fun{nv:node_t}
+slist_all {n:int} (!slist (nv, n)): bool
+
+fun{nv:node_t}
+slist_insert_before$pred {l:addr} (x : &nv(l)): bool
+
+// insert node into list before the first node
+// where [slist_insert_before$pred] evaluates to [true],
+// or at the very end of list (if no such node exists)
+fun{nv:node_t}
+slist_insert_before {n:int}{l1,l2:addr} (
+  v: nv(l2) @ l1
+| &slist (nv, n) >> slist (nv, n+1)
+, ptr l1
+): void

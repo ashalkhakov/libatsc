@@ -1,4 +1,8 @@
 #staload
+"libats/SATS/bool.sats"
+#staload
+_ = "libats/DATS/bool.dats"
+#staload
 "libats/SATS/gint.sats"
 #staload
 _ = "libats/DATS/gint.dats"
@@ -36,6 +40,8 @@ UN = "libats/SATS/unsafe.sats"
 #staload
 "./../SATS/argp.sats"
 
+#staload
+"./../SATS/array_prf.sats"
 #staload
 "./../SATS/vcopyenv.sats"
 #staload
@@ -187,7 +193,7 @@ add_option {l} (
   val () = $effmask_ref (
   if short != '\0' then let
     val p0 = h_opt_lookup_short (short, !p_list)
-    val dup = h_opt_is_null(p0)
+    val dup = h_opt_is_some(p0)
   in
     if dup then (
       println!("short name [", short, "] is already in use!");
@@ -201,10 +207,10 @@ add_option {l} (
     if stropt_get (opt, w) then let
       prval () = opt_unsome (w)
       val ln = w
-      val () = assert_errmsg (length (ln) = 0, "empty long names are disallowed")
+      val () = assert_errmsg (length (ln) > 0, "empty long names are disallowed")
       prval () = topize(w)
       val p0 = h_opt_lookup_long (ln, !p_list)
-      val dup = h_opt_is_null(p0)
+      val dup = h_opt_is_some(p0)
     in
       if dup then (
         println!("long name [", long, "] is already in use!");
@@ -220,17 +226,50 @@ add_option {l} (
 
 implfun
 add_positional {l} (
-  pf_at | p, idx, name, handler, help
+  pf_at | p, idx, name, arity, handler, help
 ) = {
+  val () = assert_errmsg (idx >= 0, "negative positional indexes unsupported")
+
   val () = (
     !p.index := idx;
     !p.name := name;
+    !p.arity := arity;
     !p.handler := handler;
     !p.help := help;
     !p.next := the_null_ptr
   )
   val (vbox pf_list | p_list) = ref_vptrof {positionallist} (the_positionals)
-  val () = $effmask_all (slist_cons<cmd_pos> (pf_at | !p_list, p))
+  
+  fun
+  is_variadic (x: pos_arity): bool = (
+    case+ x of PAsingle () => false | PAvariadic () => true
+  )
+  fun
+  impl (x: bool, y: bool): bool = (
+    ~x || y
+  )
+
+  // there must be at most one variadic argument
+  // and it should be the very last one  
+  val sanity = $effmask_all (slist_all<cmd_pos> (!p_list))
+  where {
+     impltmp
+     slist_all$pred<cmd_pos> (x) =
+      // duplicate index
+      (x.index != idx)
+      // this one variadic -> others must be non-variadic and less than this
+      && impl (is_variadic arity, ~is_variadic x.arity && x.index < idx)
+      // that one variadic -> this one must be non-variadic and less than that one
+      && impl (is_variadic x.arity, ~is_variadic x.arity && idx < x.index)
+  }
+  val () = assert_errmsg (sanity, "duplicate positional argument or non-last variadic argument")
+  
+  val () = $effmask_all (slist_insert_before<cmd_pos> (pf_at | !p_list, p))
+  where {
+    impltmp
+    slist_insert_before$pred<cmd_pos> (x) =
+      (idx < x.index)
+  }
 }
 
 (* ****** ****** *)
@@ -271,23 +310,50 @@ print_option {l} (x) = {
 (* ****** ****** *)
 
 fun{}
-run_positional (num: int, arg: string, list: &slist0(cmd_pos)): void = let
+run_positional {n:pos} (
+  num: int
+, rest: &(@[string][n])
+, num_rest: size n
+, list: &slist0(cmd_pos)
+): bool = let
   val (pf_opt | p_opt) = slist_search_takeout<cmd_pos>(list)
   where {
     impltmp
     slist_search$pred<cmd_pos> (x) = (x.index = num)
   }
 in
-  if ptr1_isneqz p_opt then {
+  if ptr1_isneqz p_opt then let
     prval vtakeout_some_v (pf_at, fpf) = pf_opt
-    val () = !p_opt.handler (arg)
+    val res =
+      case+ !p_opt.arity of
+      | PAsingle () => let
+          val p_arr = addr@ rest
+          prval pf1_arr = view@ rest
+          prval (pf11_arr, pf12_arr) = array_v_split_at (pf1_arr | i2sz 1)
+          
+          val hnd = pos_handler_elim (!p_opt.handler)
+          val () = hnd (!p_arr, i2sz 1)
+          prval () = view@ rest := array_v_unsplit (pf11_arr, pf12_arr)
+        in
+          false
+        end
+      | PAvariadic () => let
+          val hnd = pos_handler_elim (!p_opt.handler)
+          val () = hnd (rest, num_rest)
+        in
+          true
+        end
     prval () = fpf (pf_at)
-  } else {
+  in
+    res
+  end else let
     prval vtakeout_none_v () = pf_opt
     // FIXME: error handling?
     val () = println!("unknown positional argument number: ", num)
     val () = assert_errmsg(1 = 0, "unexpected positional argument")
-  }
+  in
+    false
+  end
 end
 
 (* ****** ****** *)
@@ -321,6 +387,7 @@ val () = slist_foreach<cmd_pos> (positionals) where
   {
     val () = print!(" ")
     val () = print!(x.name)
+    val () = case+ x.arity of PAvariadic() => print!("...") | _ => ()
   }
 }
 //
@@ -529,7 +596,9 @@ long_has_param (key) = let
   prval (pf_node, fpf) = vcopyenv_v_decode ($vcopyenv_v (pf_last_node))
   val res = h_opt_lookup_long (key, !p_options)
   // otherwise it's an unknown option and we should fail
-  val () = println!("option [", key, "] is not expected")
+  val () =
+    if h_opt_is_null(res) then
+      println!("option [", key, "] is not expected")
   val () = assert_errmsg(h_opt_is_some (res), "unknown option")
   val (pf_at, fpf_at | p) = h_opt_decode (res)
   val has_param =
@@ -553,7 +622,9 @@ short_has_param (key) = let
   prval (pf_node, fpf) = vcopyenv_v_decode ($vcopyenv_v (pf_last_node))
   val res = h_opt_lookup_short (key, !p_options)
   // otherwise it's an unknown option and we should fail
-  val () = println!("option [", key, "] is not expected")
+  val () =
+    if h_opt_is_null(res) then
+      println!("option [", key, "] is not expected")
   val () = assert_errmsg(h_opt_is_some (res), "unexpected option")
   val (pf_at, fpf_at | p) = h_opt_decode (res)
   val has_param =
@@ -583,12 +654,14 @@ handle_param (value) = {
 }
 //
 impltmp{}
-handle_positional (num, arg) = {
+handle_positional {n} (num, rest, num_rest, i) = let
   val (pf_positionals, fpf_positionals | p_positionals) =
     ref_takeout {positionallist} (the_positionals)
-  val () = run_positional (num, arg, !p_positionals)
+  val res = run_positional (num, rest, num_rest, !p_positionals)
   prval () = fpf_positionals (pf_positionals)
-}
+in
+  res
+end
 //
 val () = parse_args (first, argc, argv)
 //

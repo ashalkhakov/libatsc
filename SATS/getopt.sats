@@ -17,9 +17,17 @@ short_has_param (key: char): bool
 fun{}
 handle_param (value: string): void
 
-// [arg] is [num]th positional arg
+// [num] is the num-th positional argument
+// [rest] is the [argv] subarray where [rest.[0]] is the argument
+// [i] is the index in the original [argv]
+// return [true] if consumed all of [rest], not just the first element
 fun{}
-handle_positional (num: int, arg: string): void
+handle_positional {n:pos} (
+  num: int
+, rest: &(@[string][n])
+, num_rest: size n
+, i: int
+): bool
 
 (** lang=markdown
 

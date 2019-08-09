@@ -106,3 +106,109 @@ in
 end
 //
 }
+
+impltmp{nv}
+slist_all$pred {l} (x) = false
+
+impltmp{nv}
+slist_all {n} (sl) = let
+//
+fun
+aux {n:int}{l:addr} (pf: !slist_v (nv, n, l) | p: ptr l): bool =
+if ptr1_isneqz (p) then let
+  prval slseg_v_cons (pf_v, pf_nxt) = pf
+  val res = slist_all$pred<nv> (!p)
+in
+  if res then let
+    val p_nxt = slist_node_get_next<nv> (pf_v | p)  
+    val res = aux (pf_nxt | p_nxt)
+    prval () = pf := slseg_v_cons (pf_v, pf_nxt)
+  in
+    res
+  end else let
+    prval () = pf := slseg_v_cons (pf_v, pf_nxt)
+  in
+    false
+  end
+end else true
+//
+in
+  aux (sl.0 | sl.1)
+end
+
+impltmp{nv}
+slist_insert_before$pred {l} (x) = false
+
+impltmp{nv}
+slist_insert_before {n} (pf_v | sl, p) = {
+//
+fun
+aux {n:int}{l0,l1,lv,ln:addr} (
+  pf_v: nv (ln) @ lv
+, pf_hd: nv (l1) @ l0
+, pf_lst: slist_v (nv, n, l1)
+| pv: ptr lv
+, p0: ptr l0
+, p1: ptr l1
+): (slist_v (nv, n+2, l0) | ptr l0) = let
+  prval () = lemma_at_view (pf_hd)
+  prval () = lemma_at_view (pf_v) 
+in
+  if ptr1_isneqz (p1) then let
+    prval slseg_v_cons (pf_nhd, pf_nlst) = pf_lst
+  in
+    if slist_insert_before$pred<nv> (!p1) then let
+      val () = slist_node_set_next<nv> (pf_hd | p0, pv)
+      val () = slist_node_set_next<nv> (pf_v | pv, p1)
+      prval pf_lst = slseg_v_cons (pf_nhd, pf_nlst)
+      prval pf_res = slseg_v_cons (pf_hd, slseg_v_cons (pf_v, pf_lst))
+    in
+      (pf_res | p0)
+    end else let
+      val p2 = slist_node_get_next<nv> (pf_nhd | p1)
+      val (pf_lst | p_lst) = aux (pf_v, pf_nhd, pf_nlst | pv, p1, p2)
+      prval pf_lst = slseg_v_cons (pf_hd, pf_lst)
+    in
+      (pf_lst | p0)
+    end
+  end else let
+    // insert after the current tail, since there is no element found
+    prval slseg_v_nil () = pf_lst
+    val () = slist_node_set_next<nv> (pf_hd | p0, pv)
+    val () = slist_node_set_next<nv> (pf_v | pv, the_null_ptr)
+    prval pf_res = slseg_v_cons (pf_hd, slseg_v_cons (pf_v, slseg_v_nil ()))
+  in
+    (pf_res | p0)
+  end
+end
+//
+prval pf_sl = sl.0
+val p_sl = sl.1
+val new_sl =
+  (if ptr1_isneqz (p_sl) then let
+    prval slseg_v_cons (pf_hd, pf1_sl) = pf_sl
+    prval () = lemma_at_view (pf_v) 
+  in
+    if slist_insert_before$pred<nv> (!p_sl) then let
+      val () = slist_node_set_next<nv> (pf_v | p, p_sl)
+      prval pf_sl = slseg_v_cons (pf_hd, pf1_sl)
+      prval pf_list = slseg_v_cons (pf_v, pf_sl)
+    in
+      (pf_list | p)
+    end else let
+      val p_next = slist_node_get_next<nv> (pf_hd | p_sl)
+    in
+      aux (pf_v, pf_hd, pf1_sl | p, p_sl, p_next)
+    end
+  end else let
+    prval slseg_v_nil () = pf_sl
+    val () = slist_node_set_next<nv> (pf_v | p, the_null_ptr)
+    prval () = lemma_at_view (pf_v)    
+    prval pf = slseg_v_cons (pf_v, slseg_v_nil ())
+  in
+    (pf | p)
+  end) : slist (nv, n+1)
+prval () = sl.0 := new_sl.0
+val () = sl.1 := new_sl.1
+//
+}

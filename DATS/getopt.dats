@@ -222,13 +222,21 @@ case+ tok.type of
 | tt_end_of_opts () => let
     val i = tr.pos
   in
-    if i < tr.argc then let
-      val arg = argv_get_at (tr.argv, i)
-    in
-      positional (0, tr, succ(i), arg)
-    end
+    if i < tr.argc then positional (0, tr, i)
   end
-| tt_param () => positional (0, tr, tr.pos, tok.value) // reuse this token
+| tt_param () => let
+    val i = tr.pos - 1
+  in
+    if i >= 0 then (
+      if i < tr.argc then {
+        // reuse this token if it was a --key=value kind of option
+        val tmp = argv_get_at (tr.argv, i)
+        val rp = (ptrof(tmp) != ptrof(tok.value))
+        val () = if rp then argv_set_at (tr.argv, i, tok.value)
+        val () = positional (0, tr, i)
+      }
+    )
+  end
 )
 //
 and collect_short(opt: char, count: int, tr: &tokenizer(n) >> _): void =
@@ -271,16 +279,37 @@ in
   ) else args (tr, tok)
 end
 //
-and positional {i:nat | i <= n} (num: int, tr: &tokenizer(n) >> _, i: int(i), arg: string): void = let
+and positional {i:nat | i < n} (num: int, tr: &tokenizer(n) >> _, i: int(i)): void = let
+//  
+  extern
+  castfn
+  argv_takeout {n:int}(
+    !argv(n)
+  ):<> [l:addr] (
+    array_v(string,l,n), array_v(string,l,n) -<lin,prf> void
+  | ptr(l)
+  )
+//
+  val (pf_arr, fpf | p_arr) = argv_takeout (tr.argv)
+  val idx = i2sz i
+  prval (pf1_arr, pf2_arr) = array_v_split_at (pf_arr | idx)
+  val p2_arr = ptr1_add<string> (p_arr, idx)
   // tok is the num-th positional argument!
-  val () = handle_positional (num, arg)
+  val sz = tr.argc - i
+  val consumed_rest = handle_positional (num, !p2_arr, i2sz sz, i)
+  prval pf_arr = array_v_unsplit (pf1_arr, pf2_arr)
+  prval () = fpf (pf_arr)
+//  
 in
-  if i < tr.argc then {
-    val num = succ(num)
-    val arg = argv_get_at (tr.argv, i)
+  if consumed_rest then ()
+  else let
     val i = succ(i)
-    val () = positional (num, tr, i, arg)
-  }
+  in
+    if i < tr.argc then {
+      val num = succ(num)
+      val () = positional (num, tr, i)
+    }
+  end
 end
 //
 prval () = lemma_argv_param (argv)

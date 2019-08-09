@@ -49,3 +49,6 @@ fi
 if [[ $(eval '$A --file -h') != 'please supply the required parameter for option --file' ]]; then
     echo "15" && exit 1
 fi
+if [[ $(eval '$A 1 2 3 4 5 6') != 'positional(0, [1])positional(1, [2])positional(2, [3,4,5,6])' ]]; then
+    echo "16" && exit 1
+fi

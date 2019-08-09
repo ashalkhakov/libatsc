@@ -76,8 +76,32 @@ short_has_param (key) =
   end
 //
 impltmp{}
-handle_positional (num, arg) =
-  print!("positional(", num, ", [", arg, "])")
+handle_positional (num, args, num_args, i) =
+  if num < 2 then let
+    val arg = args.[0]
+  in
+    print!("positional(", num, ", [", arg, "])");
+    false
+  end else let
+    val () = print!("positional(", num, ", [")
+    var count = (g0ofg1)0
+    prval pf_count = view@ count
+    val () = array_foreach<string> (args, num_args) where {
+      impltmp
+      array_foreach$work<string>(x) = {
+        prval (pf, fpf) = vcopyenv_v_decode ($vcopyenv_v(pf_count))
+        val () = if count > 0 then print_string(",")
+        val () = count := succ(count)
+        prval () = fpf (pf)
+        val () = print_string(x)
+      }
+    }
+    prval () = view@ count := pf_count
+    val () = print!("])")
+  in
+    true
+  end
+
 impltmp{}
 handle_param(value) = let
   prval (pf_long, fpf1) = vcopyenv_v_decode ($vcopyenv_v (pf_key_long))
