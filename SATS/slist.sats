@@ -12,20 +12,28 @@ vtakeout0 (v:view) = vtakeout(void, v)
 
 (* ****** ****** *)
 
+/// [slnode_v(a,l1,l2)] is for user-defined node type
+/// - [a] is the node type (typically a record)
+/// - [l1] is the address of the node
+/// - [l2] is the address of the next-pointer
+///
+/// [a @ l1] is assumed to be contained in this view,
+/// but it might as well contain a memory free view
+///
+/// user is expected to write conversion proof-functions
+/// for their own use
 absview slnode_v (vtflt, addr, addr)
 
 prfun
-lemma_at_view {a:vtflt}{l1,l2:addr} (!slnode_v (a, l1, l2)): [l1 > null] void
+lemma_at_view
+  {a:vtflt}{l1,l2:addr}
+  (!slnode_v (a, l1, l2)): [l1 > null] void
 
 prfun
 slnode_v_takeout
   {a:vtflt} {l1,l2:addr}
   (slnode_v (a, l1, l2))
   : (a @ l1, a @ l1 -<lin,prf> slnode_v (a, l1, l2))
-prfun
-slnode_v_intr
-  {a:vtflt} {l:addr}
-  (a @ l): [l2:addr] slnode_v (a, l, l2)
 
 dataview
 opt_vtakeout (v1:view, v2:vtflt, l:addr) =
@@ -58,6 +66,10 @@ lemma_slseg_v_param {a:vtflt;n:int;l1,l2:addr} (
   !slseg_v(a, n, l1, l2)
 ):<> [n>=0] void
 
+(* ****** ****** *)
+/// User-defined functions for accessing and mutating
+/// the next-pointer of a node.
+
 fun{a:vtflt}
 slist_node_get_next {l1,l2:addr} (
   v: !slnode_v(a, l1, l2) | ptr l1
@@ -68,6 +80,8 @@ slist_node_set_next {l1,l2,l3:addr} (
   v: !slnode_v(a, l1, l2) >> slnode_v(a, l1, l3) | ptr l1, ptr l3
 ): void
 
+(* ****** ****** *)
+
 absvtbox slist(vtflt+, int) = ptr
 vtypedef slist0 (a:vtflt) = [n:int] slist(a, n)
 
@@ -75,9 +89,11 @@ fun{a:vtflt}
 slist_nil (): slist (a, 0)
 
 fun{a:vtflt}
-slist_cons {l:addr}{n:int} (
-  v: a @ l | &slist(a, n) >> slist(a, n+1), ptr l
+slist_cons {l,ln:addr}{n:int} (
+  v: slnode_v (a, l, ln) | &slist(a, n) >> slist(a, n+1), ptr l
 ): void
+
+(* ****** ****** *)
 
 fun{a:vtflt}
 slist_foreach {n:int} (
@@ -110,6 +126,8 @@ slist_all$pred (x: &a): bool
 fun{a:vtflt}
 slist_all {n:int} (!slist (a, n)): bool
 
+(* ****** ****** *)
+
 fun{a:vtflt}
 slist_insert_before$pred (x : &a): bool
 
@@ -117,8 +135,8 @@ slist_insert_before$pred (x : &a): bool
 // where [slist_insert_before$pred] evaluates to [true],
 // or at the very end of list (if no such node exists)
 fun{a:vtflt}
-slist_insert_before {n:int}{l:addr} (
-  v: a @ l
+slist_insert_before {n:int}{l,ln:addr} (
+  v: slnode_v (a, l, ln)
 | &slist (a, n) >> slist (a, n+1)
 , ptr l
 ): void

@@ -51,7 +51,8 @@ register {l:addr} (
   val () = !p.next := the_null_ptr
 
   val (vbox pf_cvarlist | p_cvarlist) = ref_vptrof {cvarlist} (the_cvars)
-  val () = $effmask_all (slist_cons<nv> (pf_at | !p_cvarlist, p))
+  prval pf_v = slnode_v_put pf_at
+  val () = $effmask_all (slist_cons<nv> (pf_v | !p_cvarlist, p))
 in
 end
 

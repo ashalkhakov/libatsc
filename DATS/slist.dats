@@ -13,8 +13,7 @@ impltmp{a}
 slist_nil () = (slseg_v_nil{a} () | the_null_ptr)
 
 impltmp{a}
-slist_cons {l}{n} (pf_at | sl, p) = let
-  prval pf_v = slnode_v_intr (pf_at)
+slist_cons {l,ln}{n} (pf_v | sl, p) = let
   val () = slist_node_set_next<a> (pf_v | p, sl.1)
   val () = sl.1 := p
   prval () = lemma_slseg_v_param (sl.0)
@@ -195,7 +194,6 @@ end
 //
 prval pf_sl = sl.0
 val p_sl = sl.1
-prval pf_v = slnode_v_intr (pf_v)
 prval () = lemma_at_view (pf_v) 
 val new_sl =
   (if ptr1_isneqz (p_sl) then let

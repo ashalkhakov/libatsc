@@ -64,33 +64,27 @@ castfn
 ref_takeout {a:vtflt}
 (ref(a)):<> [l:agz] (a @ l, a @ l -<lin,prf> void | ptr l)
 
-local
-
 extern
 prfun
-slnode_v_get {l1,l2:addr} (slnode_v(cmd_opt, l1, l2)): cmd_opt (l2) @ l1
+slnode_v_get_opt {l1,l2:addr} (slnode_v(cmd_opt, l1, l2)): cmd_opt (l2) @ l1
 extern
 prfun
-slnode_v_put {l1,l2:addr} (cmd_opt(l2) @ l1): slnode_v (cmd_opt, l1, l2)
-
-in
+slnode_v_put_opt {l1,l2:addr} (cmd_opt(l2) @ l1): slnode_v (cmd_opt, l1, l2)
 
 impltmp
 slist_node_get_next<cmd_opt> {l1,l2} (pf_v | p) = let
-  prval pf_at = slnode_v_get (pf_v)
+  prval pf_at = slnode_v_get_opt (pf_v)
   val res = !p.next
-  prval () = pf_v := slnode_v_put (pf_at)
+  prval () = pf_v := slnode_v_put_opt (pf_at)
 in
   res
 end
 impltmp
 slist_node_set_next<cmd_opt> {l1,l2,l3} (pf_v | p, n) = {
-  prval pf_at = slnode_v_get (pf_v)
+  prval pf_at = slnode_v_get_opt (pf_v)
   val () = !p.next := n
-  prval () = pf_v := slnode_v_put (pf_at)
+  prval () = pf_v := slnode_v_put_opt (pf_at)
 }
-
-end
 
 vtypedef optionlist = slist0 (cmd_opt)
 var options = slist_nil<cmd_opt> () : optionlist
@@ -98,33 +92,27 @@ val the_options = ref_make_viewptr (view@ options | addr@ options)
 
 val p_options = addr@ options
 
-local
-
 extern
 prfun
-slnode_v_get {l1,l2:addr} (slnode_v(cmd_pos, l1, l2)): cmd_pos (l2) @ l1
+slnode_v_get_pos {l1,l2:addr} (slnode_v(cmd_pos, l1, l2)): cmd_pos (l2) @ l1
 extern
 prfun
-slnode_v_put {l1,l2:addr} (cmd_pos(l2) @ l1): slnode_v (cmd_pos, l1, l2)
-
-in
+slnode_v_put_pos {l1,l2:addr} (cmd_pos(l2) @ l1): slnode_v (cmd_pos, l1, l2)
 
 impltmp
 slist_node_get_next<cmd_pos> {l1,l2} (pf_v | p) = let
-  prval pf_at = slnode_v_get (pf_v)
+  prval pf_at = slnode_v_get_pos (pf_v)
   val res = !p.next
-  prval () = pf_v := slnode_v_put (pf_at)
+  prval () = pf_v := slnode_v_put_pos (pf_at)
 in
   res
 end
 impltmp
 slist_node_set_next<cmd_pos> {l1,l2,l3} (pf_v | p, n) = {
-  prval pf_at = slnode_v_get (pf_v)
+  prval pf_at = slnode_v_get_pos (pf_v)
   val () = !p.next := n
-  prval () = pf_v := slnode_v_put (pf_at)
+  prval () = pf_v := slnode_v_put_pos (pf_at)
 }
-
-end
 
 vtypedef positionallist = slist0 (cmd_pos)
 var positionals = slist_nil<cmd_pos> () : positionallist
@@ -267,7 +255,8 @@ add_option {l} (
     end
   end)
   
-  val () = $effmask_all (slist_cons<cmd_opt> (pf_at | !p_list, p))
+  prval pf_v = slnode_v_put_opt pf_at
+  val () = $effmask_all (slist_cons<cmd_opt> (pf_v | !p_list, p))
 }
 
 implfun
@@ -309,8 +298,9 @@ add_positional {l} (
       && impl (is_variadic x.arity, ~is_variadic x.arity && idx < x.index)
   }
   val () = assert_errmsg (sanity, "duplicate positional argument or non-last variadic argument")
-  
-  val () = $effmask_all (slist_insert_before<cmd_pos> (pf_at | !p_list, p))
+
+  prval pf_v = slnode_v_put_pos pf_at  
+  val () = $effmask_all (slist_insert_before<cmd_pos> (pf_v | !p_list, p))
   where {
     impltmp
     slist_insert_before$pred<cmd_pos> (x) =
