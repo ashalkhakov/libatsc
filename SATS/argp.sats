@@ -34,6 +34,7 @@ typedef cmd_opt (l:addr) = @{
 , help= string
 , next= ptr l
 }
+typedef cmd_opt = [l:addr] cmd_opt (l)
 typedef cmd_opt0 = cmd_opt(null)
 
 /// register an option handler
@@ -73,6 +74,7 @@ typedef cmd_pos (l:addr) = @{
 , help= string
 , next= ptr l
 }
+typedef cmd_pos = [l:addr] cmd_pos (l)
 typedef cmd_pos0 = cmd_pos(null)
 
 /// register a positional argument handler

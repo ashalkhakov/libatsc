@@ -12,23 +12,33 @@ vtakeout0 (v:view) = vtakeout(void, v)
 
 (* ****** ****** *)
 
-sortdef node_t = addr -> tflt
+absview slnode_v (vtflt, addr, addr)
+
+prfun
+lemma_at_view {a:vtflt}{l1,l2:addr} (!slnode_v (a, l1, l2)): [l1 > null] void
+
+prfun
+slnode_v_takeout
+  {a:vtflt} {l1,l2:addr}
+  (slnode_v (a, l1, l2))
+  : (a @ l1, a @ l1 -<lin,prf> slnode_v (a, l1, l2))
+prfun
+slnode_v_intr
+  {a:vtflt} {l:addr}
+  (a @ l): [l2:addr] slnode_v (a, l, l2)
 
 dataview
-opt_vtakeout (v1:view, v2:node_t, l:addr) =
-  | {ln:addr;l:agz} vtakeout_some_v (v1, v2, l) of (
-      v2(ln) @ l
-    , v2(ln) @ l -<lin,prf> v1
+opt_vtakeout (v1:view, v2:vtflt, l:addr) =
+  | {l:agz} vtakeout_some_v (v1, v2, l) of (
+      v2 @ l
+    , v2 @ l -<lin,prf> v1
     )
   | vtakeout_none_v (v1, v2, null)
 viewdef
-opt_vtakeout0 (v:node_t, l:addr) = opt_vtakeout(void, v, l)
-
-prfun
-lemma_at_view {nv:node_t}{l1,l2:addr} (!nv (l2) @ l1): [l1 > null] void
+opt_vtakeout0 (v:vtflt, l:addr) = opt_vtakeout(void, v, l)
 
 dataview slseg_v (
-  a: node_t
+  a: vtflt
 , int
 , addr
 , addr
@@ -36,79 +46,79 @@ dataview slseg_v (
   | {n:nat}
     {la,lb,lz:addr | la > null}
     slseg_v_cons (a, n+1, la, lz) of (
-      a (lb) @ la, slseg_v (a, n, lb, lz)
+      slnode_v (a, la, lb), slseg_v (a, n, lb, lz)
     ) // end of [slseg_v_cons]
   | {la:addr} slseg_v_nil (a, 0, la, la)
 
 viewdef slist_v
-  (a: node_t, n:int, l:addr) = slseg_v (a, n, l, null)
+  (a: vtflt, n:int, l:addr) = slseg_v (a, n, l, null)
 
 prfun
-lemma_slseg_v_param {nv:node_t;n:int;l1,l2:addr} (
-  !slseg_v(nv, n, l1, l2)
+lemma_slseg_v_param {a:vtflt;n:int;l1,l2:addr} (
+  !slseg_v(a, n, l1, l2)
 ):<> [n>=0] void
 
-fun{nv:node_t}
+fun{a:vtflt}
 slist_node_get_next {l1,l2:addr} (
-  v: !nv(l2) @ l1 | ptr l1
+  v: !slnode_v(a, l1, l2) | ptr l1
 ): ptr l2
 
-fun{nv:node_t}
+fun{a:vtflt}
 slist_node_set_next {l1,l2,l3:addr} (
-  v: !nv(l2) @ l1 >> nv(l3) @ l1 | ptr l1, ptr l3
+  v: !slnode_v(a, l1, l2) >> slnode_v(a, l1, l3) | ptr l1, ptr l3
 ): void
 
-absvtbox slist(node_t, int) = ptr
-vtypedef slist0 (a:node_t) = [n:int] slist(a, n)
+absvtbox slist(vtflt+, int) = ptr
+vtypedef slist0 (a:vtflt) = [n:int] slist(a, n)
 
-fun{nv:node_t}
-slist_nil (): slist (nv, 0)
+fun{a:vtflt}
+slist_nil (): slist (a, 0)
 
-fun{nv:node_t}
-slist_cons {l1,l2:addr}{n:int} (
-  v: nv(l2) @ l1 | &slist(nv, n) >> slist(nv, n+1), ptr l1
+fun{a:vtflt}
+slist_cons {l:addr}{n:int} (
+  v: a @ l | &slist(a, n) >> slist(a, n+1), ptr l
 ): void
 
-fun{nv:node_t}
+fun{a:vtflt}
 slist_foreach {n:int} (
-  &slist (nv, n)
+  &slist (a, n)
 ): void
 
-fun{nv:node_t}
-slist_foreach$work {l:addr} (x : &nv(l)): void
+fun{a:vtflt}
+slist_foreach$work (&a): void
 
-fun{nv:node_t}
+fun{a:vtflt}
 slist_iforeach {n:int} (
-  &slist (nv, n)
+  &slist (a, n)
 ): void
 
-fun{nv:node_t}
-slist_iforeach$work {l:addr} (int, x : &nv(l)): void
+fun{a:vtflt}
+slist_iforeach$work (int, &a): void
 
-fun{nv:node_t}
-slist_search$pred {l:addr} (x : &nv(l)): bool
+fun{a:vtflt}
+slist_search$pred (&a): bool
 
-fun{nv:node_t}
-slist_search_takeout {n:int} (!slist (nv, n)): [l1:addr] (
-  opt_vtakeout0 (nv, l1)
-| ptr l1
+fun{a:vtflt}
+slist_search_takeout {n:int} (!slist (a, n)): [l:addr] (
+  opt_vtakeout0 (a, l)
+| ptr l
 )
 
 // evaluate predicate over all nodes
-fun{nv:node_t}
-slist_all$pred {l:addr} (x: &nv(l)): bool
-fun{nv:node_t}
-slist_all {n:int} (!slist (nv, n)): bool
+fun{a:vtflt}
+slist_all$pred (x: &a): bool
+fun{a:vtflt}
+slist_all {n:int} (!slist (a, n)): bool
 
-fun{nv:node_t}
-slist_insert_before$pred {l:addr} (x : &nv(l)): bool
+fun{a:vtflt}
+slist_insert_before$pred (x : &a): bool
 
 // insert node into list before the first node
 // where [slist_insert_before$pred] evaluates to [true],
 // or at the very end of list (if no such node exists)
-fun{nv:node_t}
-slist_insert_before {n:int}{l1,l2:addr} (
-  v: nv(l2) @ l1
-| &slist (nv, n) >> slist (nv, n+1)
-, ptr l1
+fun{a:vtflt}
+slist_insert_before {n:int}{l:addr} (
+  v: a @ l
+| &slist (a, n) >> slist (a, n+1)
+, ptr l
 ): void

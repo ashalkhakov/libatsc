@@ -12,11 +12,29 @@ _ = "./../DATS/pointer.dats"
 typedef node (l:addr) = @{name= string, help= string, next= ptr l}
 typedef node0 = node(null)
 typedef nv (l1:addr) = node (l1)
+typedef nv = [l:addr] nv (l)
+
+extern
+prfun
+slnode_v_get {l1,l2:addr} (slnode_v(nv, l1, l2)): nv (l2) @ l1
+extern
+prfun
+slnode_v_put {l1,l2:addr} (nv(l2) @ l1): slnode_v (nv, l1, l2)
 
 impltmp
-slist_node_get_next<nv> {l1,l2} (pf_v | p) = !p.next
+slist_node_get_next<nv> {l1,l2} (pf_v | p) = let
+  prval pf_at = slnode_v_get (pf_v)
+  val res = !p.next
+  prval () = pf_v := slnode_v_put (pf_at)
+in
+  res
+end
 impltmp
-slist_node_set_next<nv> {l1,l2,l3} (pf_v | p, n) = !p.next := n
+slist_node_set_next<nv> {l1,l2,l3} (pf_v | p, n) = {
+  prval pf_at = slnode_v_get (pf_v)
+  val () = !p.next := n
+  prval () = pf_v := slnode_v_put (pf_at)
+}
 
 vtypedef
 cvarlist = [n:int] slist (nv, n)
