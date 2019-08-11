@@ -3,6 +3,8 @@
 
 #staload UN = "libats/SATS/unsafe.sats"
 
+#staload "./../SATS/array_prf.sats"
+
 #staload "./../SATS/pointer.sats"
 
 impltmp
@@ -14,3 +16,12 @@ impltmp
 {}//tmp
 ptr1_isneqz{l}(p0) =
 $UN.cast{bool(l>null)}(ptr0_isneqz(p0))
+
+impltmp
+{a}//tmp
+array_ptr_takeout
+  {l}{n}{i} (pf_arr | p_arr, i) =
+(pf, fpf | ptr1_add<a>(p_arr, i))
+where {
+  prval (pf, fpf) = array_v_takeout{a}{l}{n}{i}(pf_arr)
+}

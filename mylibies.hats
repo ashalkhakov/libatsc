@@ -41,6 +41,12 @@ _ =
 ARGP = "./SATS/argp.sats"
 #staload
 _ = "./DATS/argp.dats"
+
+#staload
+BINHEAP = "./SATS/binheap.sats"
+#staload
+_ = "./DATS/binheap.dats"
+
 //
 (* ****** ****** *)
 

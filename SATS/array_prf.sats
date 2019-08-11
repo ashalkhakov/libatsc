@@ -32,3 +32,15 @@ array_v_unextend :
   {l:addr}
   {n:int | n > 0}
   (array_v (INV(a), l, n)) -<prf> (array_v (a, l, n-1), a @ l+(n-1)*sizeof(a))
+
+prfun
+array_v_takeout
+  {a:vtflt}
+  {l:addr}
+  {n:int }
+  {i:nat | i < n}
+(
+  pfarr: array_v (INV(a), l, n)
+) :<prf> (
+  a @ (l+i*sizeof(a)), a @ (l+i*sizeof(a)) -<lin,prf> array_v (a, l, n)
+)

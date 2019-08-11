@@ -58,6 +58,8 @@ slist_dats: \
 slist.dats; $(TEMPACC) -DATS_MEMALLOC_LIBC -o $@ $<
 argp_dats: \
 argp.dats; $(TEMPACC) -DATS_MEMALLOC_LIBC -o $@ $<
+binheap_dats: \
+binheap.dats; $(TEMPACC) -DATS_MEMALLOC_LIBC -o $@ $<
 
 ######
 
@@ -66,6 +68,7 @@ regress:: strbuf_dats; ./strbuf_dats
 regress:: getopt_dats test_getopt.sh; ./test_getopt.sh
 regress:: slist_dats test_slist.sh; ./test_slist.sh
 regress:: argp_dats; ./argp_dats
+regress:: binheap_dats; ./binheap_dats
 
 ######
 
