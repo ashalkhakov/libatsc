@@ -10,7 +10,8 @@ implfun main0() =
 //
 typedef T = int
 //
-val DA = dynarray_make_nil<T> (i2sz(1))
+var DA: DYNARRAYNODE(0, 0, null)
+val () = dynarray_make_nil<T> (DA, i2sz(1))
 //
 val () = dynarray_insert_at (DA, i2sz(0), 0)
 val () = println! ("DA[0] = ", DA[0])

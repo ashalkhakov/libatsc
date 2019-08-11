@@ -8,6 +8,17 @@ fun{}
 ptr1_isneqz
 {l:addr}(ptr(l)):<> bool(l>null)
 
+fun{a:tflt}
+ptr_write0{l:addr}
+  (pf: !a? @ l >> a @ l | p: ptr l, v: INV(a)): void
+
+fun{a:vtflt}
+ptr_write{l:addr}
+  (pf: !a? @ l >> a @ l | p: ptr l, v: &INV(a) >> a?): void
+fun{a:vtflt}
+ptr_read{l:addr}
+  (pf: !a @ l >> a? @ l | p: ptr l): a
+
 castfn
 ref_make_viewptr
   {a:vtflt}{l:addr}

@@ -1,39 +1,21 @@
 #staload
 "libats/SATS/bool.sats"
 #staload
-_ = "libats/DATS/bool.dats"
-#staload
 "libats/SATS/gint.sats"
-#staload
-_ = "libats/DATS/gint.dats"
 #staload
 "libats/SATS/gptr.sats"
 #staload
-_ = "libats/DATS/gptr.dats"
-#staload
 "libats/SATS/gref.sats"
-#staload
-_ = "libats/DATS/gref.dats"
 #staload
 "libats/SATS/print.sats"
 #staload
-_ = "libats/DATS/print.dats"
-#staload
 "libats/SATS/char.sats"
-#staload
-_ = "libats/DATS/char.dats"
 #staload
 "libats/SATS/string.sats"
 #staload
-_ = "libats/DATS/string.dats"
-#staload
 "libats/SATS/stropt.sats"
 #staload
-_ = "libats/DATS/stropt.dats"
-#staload
 IO = "libats/SATS/stdio.sats"
-#staload
-_ = "libats/DATS/stdio.dats"
 #staload
 UN = "libats/SATS/unsafe.sats"
 
@@ -46,18 +28,11 @@ UN = "libats/SATS/unsafe.sats"
 "./../SATS/vcopyenv.sats"
 #staload
 "./../SATS/pointer.sats"
-#staload
-_ = "./../DATS/pointer.dats"
 #staload "./../SATS/strbuf.sats"
 #staload
-_ = "./../DATS/strbuf.dats"
-#staload
 "./../SATS/slist.sats"
-#staload _ = "./slist.dats"
 #staload
 "./../SATS/getopt.sats"
-#staload
-_ = "./../DATS/getopt.dats"
 
 extern
 castfn

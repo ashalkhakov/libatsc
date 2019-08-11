@@ -17,6 +17,14 @@ impltmp
 ptr1_isneqz{l}(p0) =
 $UN.cast{bool(l>null)}(ptr0_isneqz(p0))
 
+impltmp{a}
+ptr_write0 (pf | p, x) = !p := x
+
+impltmp{a}
+ptr_write (pf | p, x) = !p := x
+impltmp{a}
+ptr_read (pf | p) = !p
+
 impltmp
 {a}//tmp
 array_ptr_takeout

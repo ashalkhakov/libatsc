@@ -40,22 +40,12 @@
 
 #staload "./../SATS/array_prf.sats"
 
+#staload "./../SATS/pointer.sats"
+
 #staload "./../SATS/dynarray.sats"
 #staload LIBC_STRING = "./../SATS/libc_string.sats"
 
 #staload UN = "libats/SATS/unsafe.sats"
-
-(* ****** ****** *)
-
-extern
-fun
-{a:vtflt}
-ptr1_add
-{l:addr;n:uint}(ptr(l), n: size(n)):<> ptr(l+n*sizeof(a))
-impltmp
-{a}//tmp
-ptr1_add{l,n}(p0, n0) =
-$UN.cast{ptr(l+n*sizeof(a))}(g0add_ptr_size(p0, n0*sizeof<a>))
 
 (* ****** ****** *)
 
@@ -83,31 +73,59 @@ end
 
 local
 
-datavtype
-dynarray (a:vtflt+, n:int, m:int) =
-  {l:addr | m > 0; n >= 0; n <= m}
-  DYNARRAY of
-  (
-    array_v(a, l, n), array_v(a?, l+n*sizeof(a), m-n), mfree_gc_v(l)
-  | ptr l, size m, size n
-  )
+dataprop myprop (int, int) = {m,n:int | m > 0; n >= 0; n <= m} MYPROP (m, n)
+
 vtypedef
-dynarray (a:vtflt, n:int) = [m:int] dynarray (a, n, m)
+DYNARRAY (a:vtflt, m:int, n:int, l:addr) = (
+  array_v(a, l, n)
+, array_v(a?, l+n*sizeof(a), m-n)
+, mfree_gc_v (l)
+, myprop (m, n)
+| DYNARRAYNODE (m, n, l)
+)
+
+extern
+prfun
+dynarray_pack {a:vtflt}{m,n:int}{l:addr} (
+  array_v(a, l, n)
+, array_v(a?, l+n*sizeof(a), m-n)
+, mfree_gc_v (l)
+, myprop (m, n)
+| !DYNARRAYNODE(m, n, l) >> DYNARRAY (a, m, n, l)
+): void
+
+extern
+prfun
+dynarray_unpack {a:vtflt}{m,n:int}{l:addr} (
+ !DYNARRAY (a, m, n, l) >> DYNARRAYNODE(m, n, l)
+): (
+  array_v(a, l, n)
+, array_v(a?, l+n*sizeof(a), m-n)
+, mfree_gc_v (l)
+, myprop (m, n)
+| void
+)
+
+
+vtypedef
+dynarray(a:vtflt, m: int, n:int) = [l:addr] DYNARRAY (a, m, n, l)
 
 absimpl
-dynarray_vtflt_int_tbox(a, n) = dynarray(a, n)
+dynarray_vtflt_int_tflt(a, n) = [m:int;l:addr] DYNARRAY (a, m, n, l)
 
 in (* in-of-local *)
 
 impltmp
 {a}(*tmp*)
 dynarray_make_nil
-  (m) =
-A where {
+  (A, m) = {
 //
 val (pf1_arr, pf_gc | p) = array_ptr_alloc<a>(m)
-prval pf0_arr = array_v_nil{a}()
-val A = DYNARRAY (pf0_arr, pf1_arr, pf_gc | p, m, i2sz 0)
+val () = A.data := p
+val () = A.len := (i2sz)0
+val () = A.cap := m
+//
+prval () = dynarray_pack (array_v_nil{a}(), pf1_arr, pf_gc, MYPROP() | A)
 //
 }
 
@@ -116,7 +134,10 @@ impltmp
 dynarray_free_tflt {a}{n}
   (DA) = {
 //
-val~DYNARRAY (pf0_arr, pf1_arr, pf_gc | p, m, n) = DA
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val p = DA.data
+val m = DA.cap
+val n = DA.len
 //
 prval() = lemma_array_v_param(pf0_arr)
 //
@@ -130,7 +151,10 @@ impltmp
 dynarray_free {n}
   (DA) = {
 //
-val~DYNARRAY (pf0_arr, pf1_arr, pf_gc | p, m, n) = DA
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val p = DA.data
+val m = DA.cap
+val n = DA.len
 //
 prval() = lemma_array_v_param(pf0_arr)
 //
@@ -165,23 +189,37 @@ impltmp{}
 dynarray_get_size{a}{n}(DA) =
 n where
 {
-val DYNARRAY (_, _, _ | _, _, n) = DA
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val n = DA.len
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 }
 
 impltmp{}
 dynarray_get_capacity{a}{n}(DA) =
 m where
 {
-val DYNARRAY (_, _, _ | _, m, _) = DA
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val m = DA.cap
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 }
 
 impltmp{}
 dynarray_takeout{a}{n}(DA) =
 (arr, n) where
 {
-val DYNARRAY {_,n,m}{l} (_, _, _ | p, _, n) = DA
-val arr = $UN.castvwtp0{arrayptr(a,l,n)}(p)
-prval () = DA := $UN.castvwtp0{dynarrayptrout(a,l,n)}(DA)
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val p = DA.data
+val n = DA.len
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
+val arr = __trustme(DA | p)
+where {
+  extern
+  castfn
+  __trustme {m:int}{l:addr} (
+    !DYNARRAY (a, m, n, l) >> dynarrayptrout(a,l,n)
+  | ptr l
+  ) : arrayptr(a,l,n)
+}
 }
 
 impltmp
@@ -189,8 +227,9 @@ impltmp
 dynarray_get_at_sint {n}{i}
   (DA, i) = res where {
 //
-val DYNARRAY (pf0_arr, _, _| ap, _, _) = DA
-val res = array_get_at_sint<a> (!ap, i)
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val res = array_get_at_sint<a> (!(DA.data), i)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 }
 
@@ -199,8 +238,9 @@ impltmp
 dynarray_set_at_sint {n}{i}
   (DA, i, x) = {
 //
-val DYNARRAY (pf0_arr, _, _ | ap, _, _) = DA
-val () = array_set_at_sint<a> (!ap, i, x)
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val () = array_set_at_sint<a> (!(DA.data), i, x)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 }
 
@@ -209,8 +249,9 @@ impltmp
 dynarray_get_at_size {n}{i}
   (DA, i) = res where {
 //
-val DYNARRAY (pf0_arr, _, _ | ap, _, _) = DA
-val res = array_get_at_size<a> (!ap, i)
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val res = array_get_at_size<a> (!(DA.data), i)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 }
 
@@ -219,8 +260,9 @@ impltmp
 dynarray_set_at_size {n}{i}
   (DA, i, x) = {
 //
-val DYNARRAY (pf0_arr, _, _ | ap, _, _) = DA
-val () = array_set_at_size<a> (!ap, i, x)
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val () = array_set_at_size<a> (!(DA.data), i, x)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 }
 
@@ -229,8 +271,9 @@ impltmp
 dynarray_getref_at_sint {n}{i}
   (DA, i) = res where {
 //
-val DYNARRAY (pf, _, _ | ap, _, _) = DA
-val res = array_getref_at_sint<a> (!ap, i)
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val res = array_getref_at_sint<a> (!(DA.data), i)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 }
 
@@ -239,8 +282,9 @@ impltmp
 dynarray_getref_at_size {n}{i}
   (DA, i) = res where {
 //
-val DYNARRAY (pf, _, _ | ap, _, _) = DA
-val res = array_getref_at_size<a> (!ap, i)
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val res = array_getref_at_size<a> (!(DA.data), i)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 }
 
@@ -255,7 +299,7 @@ dynarray$fgrow {n,d} (cap, delta) = res where {
 extern
 fun{a:vtflt}
 recapacitize {n,m,m1:uint} (
-  !dynarray(a, n, m) >> dynarray (a, n, max(m,m1)), m1: size(m1)
+  &dynarray(a, m, n) >> dynarray (a, max(m,m1), n), m1: size(m1)
 ): void
 
 impltmp
@@ -263,11 +307,16 @@ impltmp
 recapacitize {n,m,m1}
   (DA, m1) = let
 //
-val @DYNARRAY {_,m,l} (pf0_arr, pf1_arr, pf_gc | p, m, n) = DA
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val m = DA.cap
+val n = DA.len
+val p = DA.data
 //
 in
 //
-if m1 <= m then let prval () = fold@ (DA) in
+if m1 <= m then let
+  prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
+in
 end else let
   val (
     pfz1_arr, pfz2_arr, pfz_gc | pz
@@ -275,9 +324,9 @@ end else let
   prval () = pf0_arr := pfz1_arr
   prval () = pf1_arr := pfz2_arr
   prval () = pf_gc := pfz_gc
-  val () = p := pz
-  val () = m := m1
-  prval () = fold@ (DA)
+  val () = DA.data := pz
+  val () = DA.cap := m1
+  prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 in
 end
 //
@@ -288,12 +337,18 @@ impltmp
 dynarray_insert_at{n}{i}
   (DA, i, x) = let
 //
-val @DYNARRAY (pf0_arr, pf1_arr, pf_gc | p, m, n) = DA
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val p = DA.data
+val m = DA.cap
+val n = DA.len
 val m1 = dynarray$fgrow<> (m, i2sz 1)
-prval () = fold@(DA)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 val () = recapacitize<a> (DA, m1)
-val @DYNARRAY {_,m,l} (pf0_arr, pf1_arr, pf_gc | p, m, n) = DA
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val p = DA.data
+val m = DA.cap
+val n = DA.len
 //
 prval (pf01_arr, pf02_arr) = array_v_split_at (pf0_arr | i)
 prval (pf_kat, pf10_arr) = array_v_uncons {a?} (pf1_arr)
@@ -318,14 +373,15 @@ val (pf_karr, pf02_arr | _) =
 prval (pf_kat, pf_karr) = array_v_uncons{a?} (pf_karr)
 prval () = array_v_unnil {a?} (pf_karr)
 //
-val () = !src := x
+var x = x
+val () = ptr_write<a> (pf_kat | src, x)
 //
 prval pf02_arr = array_v_cons {a} (pf_kat, pf02_arr)
 prval () = pf0_arr := array_v_unsplit {a} (pf01_arr, pf02_arr)
 prval () = pf1_arr := pf10_arr
-val () = n := succ(n)
+val () = DA.len := succ(n)
 //
-prval () = fold@(DA)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 in
 end
@@ -335,21 +391,28 @@ impltmp
 dynarray_append{n}
   (DA, x) = let
 //
-val @DYNARRAY (pf0_arr, pf1_arr, pf_gc | p, m, n) = DA
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val p = DA.data
+val m = DA.cap
+val n = DA.len
 val m1 = dynarray$fgrow<> (m, i2sz 1)
-prval () = fold@(DA)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 val () = recapacitize<a> (DA, m1)
-val @DYNARRAY {_,m,l} (pf0_arr, pf1_arr, pf_gc | p, m, n) = DA
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val p = DA.data
+val m = DA.cap
+val n = DA.len
 //
 prval (pf1_at, pf11_arr) = array_v_uncons{a?}(pf1_arr)
 val dst = ptr1_add<a> (p, n)
-val () = !dst := x
+var x = x
+val () = ptr_write<a> (pf1_at | dst, x)
 prval pf01_arr = array_v_extend (pf0_arr, pf1_at)
 prval () = pf0_arr := pf01_arr
 prval () = pf1_arr := pf11_arr
-val () = n := succ(n)
-prval () = fold@(DA)
+val () = DA.len := succ(n)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 in
 end
@@ -369,14 +432,17 @@ if succ(i) = sz then dynarray_takeout_last (DA, res)
 else
 {
 //
-val @DYNARRAY (pf0_arr, pf1_arr, pf_gc | p, m, n) = DA
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val p = DA.data
+val m = DA.cap
+val n = DA.len
 //
 prval (pf01_arr, pf02_arr) = array_v_split_at (pf0_arr | i)
 prval (pf_kat, pf02_arr) = array_v_uncons {a} (pf02_arr)
 val dst = ptr1_add<a> (p, i)
 val src = ptr1_add<a> (p, succ(i))
 //
-val () = res := !dst
+val () = res := ptr_read<a> (pf_kat | dst)
 //
 prval pf_karr = array_v_cons {a?} (pf_kat, array_v_nil{a?} ())
 //
@@ -388,19 +454,21 @@ prval () = pf0_arr := array_v_unsplit (pf01_arr, pf02_arr)
 prval pf11_arr = array_v_unsplit (pf_karr, pf1_arr)
 //
 prval () = pf1_arr := pf11_arr
-val () = n := pred(n)
-prval () = fold@(DA)
+val () = DA.len := pred(n)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 }
 end
-
 
 impltmp
 {a} (*tmp*)
 dynarray_takeout_last{n}
   (DA, res) = {
 //
-val @DYNARRAY (pf0_arr, pf1_arr, pf_gc | p, m, n) = DA
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val p = DA.data
+val m = DA.cap
+val n = DA.len
 //
 prval (pf01_arr, pf1_at) = array_v_unextend{a}(pf0_arr)
 val src = ptr1_add<a> (p, pred(n))
@@ -408,8 +476,8 @@ val () = res := !src
 prval pf11_arr = array_v_cons {a?} (pf1_at, pf1_arr)
 prval () = pf0_arr := pf01_arr
 prval () = pf1_arr := pf11_arr
-val () = n := pred(n)
-prval () = fold@(DA)
+val () = DA.len := pred(n)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 }
 
@@ -418,9 +486,12 @@ impltmp
 dynarray_reset_capacity {n}
   (DA, m1) = let
 //
-val @DYNARRAY (pf0_arr, pf1_arr, pf_gc | p, m, n) = DA
+prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
+val p = DA.data
+val m = DA.cap
+val n = DA.len
 val cap = m
-prval () = fold@(DA)
+prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 //
 in
   if :(DA: dynarray(a, n)) => m1 <= cap then false
@@ -430,7 +501,6 @@ in
     true
   end
 end
-
 
 end (* end-of-local *)
 

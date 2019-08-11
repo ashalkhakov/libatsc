@@ -1,13 +1,15 @@
 #staload "libats/SATS/gint.sats"
-#staload
-_ = "libats/DATS/gint.dats"
 
 #staload "./../SATS/slist.sats"
 #staload "./../SATS/pointer.sats"
 #staload
 _ = "./../DATS/pointer.dats"
 
+local
+
 absimpl slist(a:vtflt, n:int) = [l:addr] (slist_v (a, n, l) | ptr l)
+
+in // in of [local]
 
 impltmp{a}
 slist_nil () = (slseg_v_nil{a} () | the_null_ptr)
@@ -227,3 +229,5 @@ prval () = sl.0 := new_sl.0
 val () = sl.1 := new_sl.1
 //
 }
+
+end // end of [local]

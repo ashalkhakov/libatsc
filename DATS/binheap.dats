@@ -1,11 +1,7 @@
 #staload
 "libats/SATS/array.sats"
 #staload
-_ = "libats/DATS/array.dats"
-#staload
 "libats/SATS/gint.sats"
-#staload
-_ = "libats/DATS/gint.dats"
 
 #staload
 UN = "libats/SATS/unsafe.sats"
@@ -14,8 +10,6 @@ UN = "libats/SATS/unsafe.sats"
 "./../SATS/array_prf.sats"
 #staload
 "./../SATS/pointer.sats"
-#staload
-_ = "./../DATS/pointer.dats"
 #staload
 "./../SATS/binheap.sats"
 #staload LIBC_STRING = "./../SATS/libc_string.sats"
@@ -33,6 +27,8 @@ gcompare$ptr {l1,l2} (pf1, pf2 | p1, p2) = gcompare$ref<T>(!p1, !p2)
 
 (* ****** ****** *)
 
+local
+
 dataprop myprop (int,int) = {m,n:int | m >= n} MYPROP (m, n)
 
 absimpl heap (T:tflt, m:int, n:int, l:addr) = (
@@ -42,6 +38,8 @@ absimpl heap (T:tflt, m:int, n:int, l:addr) = (
   myprop (m, n)
 | HEAPNODE (T, m, n, l)
 )
+
+in
 
 impltmp{T}
 heap_init (h, sz) = {
@@ -261,5 +259,7 @@ heap_resize {m,m1,n,l} (h, size) = {
   prval () = h.2 := pf2_gc
   prval () = h.3 := MYPROP ()
 } (* end of [heap_resize] *)
+
+end
 
 (* ****** ****** *)

@@ -11,9 +11,7 @@ UN = "libats/SATS/unsafe.sats"
 #staload "./../SATS/array_prf.sats"
 
 #staload "./../SATS/strbuf.sats"
-#staload _ = "./../DATS/strbuf.dats"
 #staload "./../SATS/pointer.sats"
-#staload _ = "./../DATS/pointer.dats"
 
 #staload "./../SATS/getopt.sats"
 
@@ -31,15 +29,6 @@ tokenizer (n:int) = [i:nat | i <= n] @{
 , long=bool
 , opt= stropt
 } (* end of [tokenizer] *)
-
-(* ****** ***** *)
-
-extern
-fun{a:tflt}
-ptr_write{l:addr}
-  (pf: !a? @ l >> a @ l | p: ptr l, v: INV(a)): void
-impltmp{a}
-ptr_write (pf | p, x) = !p := x
 
 (* ****** ***** *)
 
@@ -134,7 +123,7 @@ in
             prval (pf_chars, pf_at, pf_sopt) = strchr_v_unsome (pf_strchr)
             prval strbufopt_v_some (pf_aft) = pf_sopt
             val p_aft = ptr1_add<char>(p_strchr, i2sz 1)
-            val () = ptr_write (pf_at | p_strchr, '\0')
+            val () = ptr_write0 (pf_at | p_strchr, '\0')
             prval pf_chars0 =
               strbuf_v_restore (pf_chars, pf_at, array_v_nil{byte?}())
             //
