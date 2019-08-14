@@ -127,6 +127,30 @@ dynarray_get_capacity
 (* ****** ****** *)
 
 fun{}
+dynarray_takeout_array
+  {a:vtflt}{n:int}
+(
+  !dynarray(a, n) >> dynarrayptrout(a, l, n)
+) : #[l:addr;m:int | m >= n] (
+  array_v(a, l, n)
+, array_v(a?, l+n*sizeof(a), m-n)
+| ptr l, size m, size n
+)
+
+fun{}
+dynarray_restore_array
+{a:vtflt}{l:addr}{m,n,n1:int | n1 <= m}
+(
+  array_v(a, l, n1)
+, array_v(a?, l+n1*sizeof(a), m-n1)
+| AZ: &dynarrayptrout(a,l,n) >> dynarray(a,n1)
+, size m
+, size n1
+) : void
+
+(* ****** ****** *)
+
+fun{}
 dynarray_takeout
   {a:vtflt}{n:int}
 (

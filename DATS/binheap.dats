@@ -11,6 +11,8 @@ UN = "libats/SATS/unsafe.sats"
 #staload
 "./../SATS/pointer.sats"
 #staload
+DA = "./../SATS/dynarray.sats"
+#staload
 "./../SATS/binheap.sats"
 #staload LIBC_STRING = "./../SATS/libc_string.sats"
 
@@ -19,6 +21,17 @@ UN = "libats/SATS/unsafe.sats"
 extern
 prfun
 lemma_size_param {i:int} (size(i)): [i>=0] void
+
+extern
+prfun
+array_v_split_at2 {a:vtflt} {l:addr} {n,i,j:int | i < n; j < n} (
+  array_v (a, l, n)
+| size i
+, size j
+):<> (
+  a @ l+i*sizeof(a), a @ l+j*sizeof(a)
+, (a @ l+i*sizeof(a), a @ l+j*sizeof(a)) -<lin,prf> array_v (a, l, n)
+)
 
 (* ****** ****** *)
 
@@ -29,60 +42,50 @@ gcompare$ptr {l1,l2} (pf1, pf2 | p1, p2) = gcompare$ref<T>(!p1, !p2)
 
 local
 
-dataprop myprop (int,int) = {m,n:int | m >= n} MYPROP (m, n)
-
-absimpl heap (T:tflt, m:int, n:int, l:addr) = (
-  array_v (T, l, n),
-  array_v (T?, l+n*sizeof(T), m-n),
-  mfree_gc_v (l),
-  myprop (m, n)
-| HEAPNODE (T, m, n, l)
-)
+absimpl
+heap_vtflt_int_tflt = $DA.dynarray
 
 in
 
 impltmp{T}
-heap_init (h, sz) = {
-  val (pf_arr, pf_gc | p_arr) = array_ptr_alloc<T> (sz)
-  prval () = h.0 := array_v_nil {T} ()
-  prval () = h.1 := pf_arr
-  prval () = h.2 := pf_gc
-  prval () = h.3 := MYPROP ()
-  val () = h.4.size := sz
-  val () = h.4.count := (i2sz)0
-  val () = h.4.data := p_arr
-}
+heap_make_nil (h, sz) = $DA.dynarray_make_nil (h, sz)
 
 impltmp{T}
-heap_term (h) = {
-  prval pf1_arr = h.0
-  prval pf2_arr = h.1
-  prval pf_gc = h.2
-  prval MYPROP () = h.3
-  
-  prval pf1_arr = __trustme (pf1_arr) where { extern prfun __trustme {n:int;l:addr} (array_v (T,l,n)): array_v (T?,l,n) }
-  
-  prval pf_arr = array_v_unsplit (pf1_arr, pf2_arr)
-  val p_arr = h.4.data
-  val () = array_ptr_mfree (pf_arr, pf_gc | p_arr)
-
-  prval () = h.3 := unit_p ()
-  val () = h.4.size := (i2sz)0
-  val () = h.4.count := (i2sz)0
-  val () = h.4.data := the_null_ptr
-}
+heap_free_tflt (h) = $DA.dynarray_free_tflt (h)
 
 impltmp{T}
-heap_push {m,n,l} (h, v) = {
+heap_free (h) = $DA.dynarray_free (h)
+
+impltmp{T}
+heap_front {n} (h) = $DA.dynarray_get_at_size (h, i2sz 0)
+
+impltmp{T}
+heap_getref_front {n} (h) = $DA.dynarray_getref_at_size (h, i2sz 0)
+
+impltmp{}
+heap_get_size {a}{n} (h) = $DA.dynarray_get_size (h)
+
+impltmp{}
+heap_get_capacity {a}{n} (h) = $DA.dynarray_get_capacity (h)
+
+impltmp{T}
+heap_push {n} (h, v) = {
+  var v = v
+  val p_v = addr@ v
+  prval pf_v = view@ v
+
   // Find out where to put the element and put it
   fun
   aux {l:addr} {i,n1:nat | i <= n1} (
     pf1_arr: array_v (T, l, i)
   , pf_at: T? @ l+i*sizeof(T)
   , pf2_arr: array_v (T, l+(i+1)*sizeof(T), n1-i)
+  , pf_v: !T @ v
   | base: ptr l, index: size i, n1: size n1
   ): [i1:nat | i1 <= i] (
-    array_v (T, l, i1), T? @ l+i1*sizeof(T), array_v (T, l+(i1+1)*sizeof(T), n1-(i1))
+    array_v (T, l, i1)
+  , T? @ l+i1*sizeof(T)
+  , array_v (T, l+(i1+1)*sizeof(T), n1-(i1))
   | size i1
   ) =
     if index = 0 then let
@@ -92,8 +95,7 @@ heap_push {m,n,l} (h, v) = {
       val parent = pred (index) // parent0 >=0
       val parent = parent / ((i2sz)2)
       val (pf1_at, fpf | p_parent) = array_ptr_takeout<T> (pf1_arr | base, parent)
-      var v = v
-      val res = gcompare$ptr<T> (pf1_at, view@v | p_parent, addr@v) < 0
+      val res = gcompare$ptr<T> (pf1_at, pf_v | p_parent, p_v) < 0
       prval pf1_arr = fpf (pf1_at)
     in
       if res then let
@@ -107,158 +109,139 @@ heap_push {m,n,l} (h, v) = {
         val p_index = ptr1_add<T> (base, index)
         val p_parent = ptr1_add<T> (base, parent)
         // so data[index] is now initialized
-        var v_parent = !p_parent
-        val () = !p_index := v_parent
+        val () = !p_index := !p_parent
         // but data[parent] is now un-initialized...
         prval pf2_arr = array_v_unsplit (pf12_arr, array_v_cons (pf_at, pf2_arr))
       in
-        aux (pf11_arr, pf1_at, pf2_arr | base, parent, n1)
+        aux (pf11_arr, pf1_at, pf2_arr, pf_v | base, parent, n1)
       end
     end
 
-  val count = h.4.count
-  val base = h.4.data
-
-  prval pf1_arr = h.0
-  prval pf3_arr = h.1
-  prval MYPROP () = h.3
+  val count = $DA.dynarray_get_size (h)
+  val count1 = succ(count)
+  prval () = lemma_size_param (count)
+  val _ = $DA.dynarray_reset_capacity (h, count1)
+  
+  val (pf1_arr, pf3_arr | base, cap, cnt) =
+    $DA.dynarray_takeout_array {T}(h)
+  
+  val () = assert_errmsg (cap > count, "unable to resize dynarray")
 
   prval (pf_at, pf3_arr) = array_v_uncons (pf3_arr)
   prval pf2_arr = array_v_nil ()
   //
-  prval () = __trustme () where { extern prfun __trustme (): [n>=0] void }
+  prval () = lemma_size_param (count)
   //
-  val (pf1_arr, pf_at, pf2_arr | index) = aux (pf1_arr, pf_at, pf2_arr | base, count, count)
+  val (pf1_arr, pf_at, pf2_arr | index) = aux (pf1_arr, pf_at, pf2_arr, pf_v | base, count, count)
+  prval () = view@ v := pf_v
   val p_index = ptr1_add<T> (base, index)
-  val () = !p_index := v
+  val () = ptr_write<T> (pf_at | p_index, v)
   prval pf2_arr = array_v_cons (pf_at, pf2_arr)
   //
-  val () = h.4.count := succ(count)
-  prval () = h.0 := array_v_unsplit (pf1_arr, pf2_arr)
-  prval () = h.1 := pf3_arr
-  prval () = h.3 := MYPROP ()
+  prval pf_arr = array_v_unsplit (pf1_arr, pf2_arr)
+  val () = $DA.dynarray_restore_array {T} (pf_arr, pf3_arr | h, cap, succ(cnt))
 }
 
 impltmp{T}
-heap_pop {m,n,l} (h) = {
+heap_pop {n} (h) = let
   // Remove the biggest element
-  val count = h.4.count
+
+  val (pf1_arr, pf2_arr | base, cap, count) =
+    $DA.dynarray_takeout_array {T}(h)
   val count = pred(count)
-  val base = h.4.data
 
-  prval pf1_arr = h.0
-  prval pf2_arr = h.1
-  prval MYPROP () = h.3
-
-  val () = h.4.count := count
   val p_temp = ptr1_add<T> (base, count)
   prval (pf1_arr, pf_temp) = array_v_unextend {T} (pf1_arr)
 
   // Reorder the elements
   fun
-  aux {n,i:nat | i < n} {l,l1:addr} (
-    pf_arr: !array_v (T, l, n)
-  , pf_tmp: !T @ l1
-  | data: ptr l, index: size i, count: size n,
-    p_tmp: ptr l1
-  ): [i1: nat | i1 < n] size i1 = let
+  aux {i,n1:nat | i <= n1} {l:addr} (
+    pf_arr: array_v (T, l, n1)
+  | data: ptr l, index: size i, count: size n1
+  ): [i1: nat | i1 <= n1] (
+    array_v (T, l, n1)
+  | size i1
+  ) = let  
     // Find the child to swap with
-    val swap = (index + index) + (i2sz)1
+    val swap = index + index + (i2sz)1
   in
-    if swap >= count then index // If there are no children, the heap is reordered
-    else let
+    if swap >= count then (
+      // If there are no children, the heap is reordered
+      (pf_arr | index)
+    ) else let
       val other = swap + (i2sz)1
-      val swap =
-        (if other < count then (
-           if gcompare$ref<T> (!data.[other], !data.[swap]) < 0 then other
-           else swap
-        ) else swap) : Sizelt(n)
+      prval () = lemma_size_param (other)
+      val swap = (
+        if other < count then let
+          prval (pf_swap, pf_other, fpf) = array_v_split_at2 (pf_arr | swap, other)
+          val p_other = ptr1_add<T> (data, other)
+          val p_swap = ptr1_add<T> (data, swap)
+
+          val res = gcompare$ptr<T> (pf_other, pf_swap | p_other, p_swap) < 0
+
+          prval () = pf_arr := fpf (pf_swap, pf_other)          
+        in
+          if res then other
+          else swap
+        end else swap
+      ) : [s:int | s > i; s < n1] size(s)
       //
       prval () = lemma_size_param (swap)
       
-      val (pf1_at, fpf | p_swap) = array_ptr_takeout<T> (pf_arr | data, swap)
-      val res = gcompare$ptr<T> (pf_tmp, pf1_at | p_tmp, p_swap) < 0
-      prval () = pf_arr := fpf (pf1_at)
+      val p_index = ptr1_add<T> (data, index)
+      val p_swap = ptr1_add<T> (data, swap)
+      prval (pf_index, pf_swap, fpf) = array_v_split_at2 (pf_arr | index, swap)
+      
+      val res = gcompare$ptr<T> (pf_index, pf_swap | p_index, p_swap) < 0
     in
-      if res then index // If the bigger child is less than or equal to its parent, the heap is reordered
-      else let
-        val () = !data.[index] := !data.[swap]
+      // If the bigger child is less than or equal to its parent, the heap is reordered
+      if res then let
+        prval () = pf_arr := fpf (pf_index, pf_swap)
       in
-        aux (pf_arr, pf_tmp | data, swap, count, p_tmp)
+        (pf_arr | index)
+      end else let
+        var tmp = ptr_read<T> (pf_index | p_index)
+        var swp = ptr_read<T>(pf_swap | p_swap)
+        val () = ptr_write<T> (pf_index | p_index, swp)
+        val () = ptr_write<T> (pf_swap | p_swap, tmp)
+        prval () = pf_arr := fpf (pf_index, pf_swap)
+      in
+        aux (pf_arr | data, swap, count)
       end
     end
   end
+  
+  prval () = lemma_size_param (count)
+in
   // AS: guess I fixed a bug here!
-  val () =
-    if count > 0 then {
-      val index = aux (pf1_arr, pf_temp | base, (i2sz)0, count, p_temp)
-      val temp = !p_temp
-      val () = array_set_at_size<T> (!base, index, temp)
-    }
-
-  prval () = h.0 := pf1_arr
-    
-  prval pf2_arr = array_v_cons (pf_temp, pf2_arr)
-  prval () = h.1 := pf2_arr
-  prval () = h.3 := MYPROP ()
-}
-
-impltmp{T}
-heap_front {m,n,l} (h) = res where {
-  val count = h.4.count
-  val base = h.4.data
-
-  prval pf1_arr = h.0
-  prval (pf_at, pf1_arr) = array_v_uncons (pf1_arr)
-  prval pf2_arr = h.1
-  prval MYPROP () = h.3
-
-  val p_index = base
-  val res = !p_index
-  prval pf1_arr = array_v_cons (pf_at, pf1_arr)
-  //
-  prval () = h.0 := pf1_arr
-  prval () = h.1 := pf2_arr
-  prval () = h.3 := MYPROP ()
-} (* end of [heap_front] *)
-
-implfun
-heap_isnot_full {a} {m,n,l} (h) = res where {
-  val count = h.4.count
-  val size = h.4.size
-  prval MYPROP () = h.3
-  val res = count < size
-} (* end of [heap_isnot_full] *)
+  if count = 0 then let
+    val res = !p_temp
+    prval pf2_arr = array_v_cons (pf_temp, pf2_arr)
+    val () = $DA.dynarray_restore_array{T} (pf1_arr, pf2_arr | h, cap, count)
+  in
+    res
+  end else let
+    prval (pf_at, pf1_arr) = array_v_uncons (pf1_arr)
+    val res = !base
+    val () = !base := !p_temp
+    prval pf1_arr = array_v_cons (pf_at, pf1_arr)
+    val (pf1_arr | index) = aux (
+      pf1_arr
+    | base, (i2sz)0, count
+    )
+    prval pf2_arr = array_v_cons (pf_temp, pf2_arr)
+    val () = $DA.dynarray_restore_array {T} (
+      pf1_arr, pf2_arr
+    | h, cap, count
+    )
+  in
+    res
+  end
+end
 
 impltmp{T}
-heap_resize {m,m1,n,l} (h, size) = {
-  val p11_arr = h.4.data
-
-  prval pf11_arr = h.0
-  prval pf12_arr = h.1
-  prval pf_gc = h.2
-  prval MYPROP () = h.3
-
-  prval () = lemma_array_v_param (pf11_arr)
-
-  val (pf2_arr, pf2_gc | p2_arr) = array_ptr_alloc<T> (size)
-
-  prval (pf21_arr, pf22_arr) = array_v_split_at (pf2_arr | h.4.count)
-
-  val nb = (h.4.count)*sizeof<T>
-  val (pf11_arr, pf21_arr | _) =
-    $LIBC_STRING.memcpy (pf11_arr, pf21_arr | p2_arr, p11_arr, nb)
-
-  prval pf1_arr = array_v_unsplit (pf11_arr, pf12_arr)
-  val () = array_ptr_mfree (pf1_arr, pf_gc | p11_arr)
-
-  val () = h.4.size := size
-  val () = h.4.data := p2_arr
-  prval () = h.0 := pf21_arr
-  prval () = h.1 := pf22_arr
-  prval () = h.2 := pf2_gc
-  prval () = h.3 := MYPROP ()
-} (* end of [heap_resize] *)
+heap_reset_capacity {n} (h, c) =
+  $DA.dynarray_reset_capacity (h, c)
 
 end
 

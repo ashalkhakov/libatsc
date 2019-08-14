@@ -49,6 +49,12 @@
 
 (* ****** ****** *)
 
+extern
+prfun
+lemma_size_param {i:int} (size(i)): [i>=0] void
+
+(* ****** ****** *)
+
 impltmp
 {a} (*tmp*)
 dynarray$frealloc {l,m,n,m1} (
@@ -202,6 +208,46 @@ prval (pf0_arr, pf1_arr, pf_gc, MYPROP() | ()) = dynarray_unpack (DA)
 val m = DA.cap
 prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP() | DA)
 }
+
+impltmp{}
+dynarray_takeout_array {a}{n}(DA) = let
+  prval (pf0_arr, pf1_arr, pf_gc, MYPROP () | ()) = dynarray_unpack (DA)
+  val p = DA.data
+  val cap = DA.cap
+  val len = DA.len
+  prval () = __trustme(DA, pf_gc | p) where {
+    extern
+    prfun
+    __trustme {m:int}{l:addr} (
+      !DYNARRAYNODE(m, n, l) >> dynarrayptrout(a,l,n)
+    , mfree_gc_v (l)
+    | ptr l
+    ) : void
+  }
+in
+  (pf0_arr, pf1_arr | p, cap, len)
+end
+
+impltmp{}
+dynarray_restore_array
+{a}{l}{m,n,n1}(pf0_arr, pf1_arr | DA, cap, len) = let
+  prval pf_gc = __trustme(DA) where {
+    extern
+    prfun
+    __trustme (
+      !dynarrayptrout(a, l, n) >> DYNARRAYNODE(m, n, l)
+    ) : mfree_gc_v (l)
+  }
+  prval () = __positive_cap () where {
+    extern
+    prfun
+    __positive_cap (): [m > 0] void
+  }
+  prval () = lemma_size_param (len)
+  val () = DA.len := len
+  prval () = dynarray_pack (pf0_arr, pf1_arr, pf_gc, MYPROP () | DA)
+in
+end
 
 impltmp{}
 dynarray_takeout{a}{n}(DA) =
